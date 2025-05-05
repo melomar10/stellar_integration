@@ -1,0 +1,94 @@
+{
+  "info": {
+    "name": "Bridge Integration - Laravel API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "customer_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Create Customer",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept",       "value": "application/json" }
+        ],
+        "url": {
+          "raw": "http://localhost/api/bridge/customers",
+          "protocol": "http",
+          "host": ["localhost"],
+          "path": ["api","bridge","customers"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"type\": \"individual\",\"first_name\": \"John\",\"last_name\": \"Doe\",\"email\": \"john.doe@example.com\",\"phone\":\"+12223334444\",\"address\": {\"street_line_1\": \"1234 Lombard Street\",\"city\": \"San Francisco\",\"country\": \"USA\"},\"birth_date\": \"1989-09-09\",\"tax_identification_number\": \"111-11-1111\",\"signed_agreement_id\": \"agreement_123\"}"
+        }
+      }
+    },
+    {
+      "name": "Generate KYC Link",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept",       "value": "application/json" }
+        ],
+        "url": {
+          "raw": "http://localhost/api/bridge/customers/kyc-link",
+          "protocol": "http",
+          "host": ["localhost"],
+          "path": ["api","bridge","customers","kyc-link"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"full_name\": \"John Doe\",\"email\": \"john.doe@example.com\",\"type\": \"individual\",\"redirect_uri\": \"http://localhost/kyc/callback\"}"
+        }
+      }
+    },
+    {
+      "name": "Create Virtual Account",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept",       "value": "application/json" }
+        ],
+        "url": {
+          "raw": "http://localhost/api/bridge/customers/{{customer_id}}/va",
+          "protocol": "http",
+          "host": ["localhost"],
+          "path": ["api","bridge","customers","{{customer_id}}","va"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"source\": { \"currency\": \"usd\" },\"destination\": { \"payment_rail\": \"ethereum\", \"currency\": \"usdc\", \"address\": \"0xDEADBEEF\" }}"
+        }
+      }
+    },
+    {
+      "name": "Create Transfer",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept",       "value": "application/json" }
+        ],
+        "url": {
+          "raw": "http://localhost/api/bridge/transfers",
+          "protocol": "http",
+          "host": ["localhost"],
+          "path": ["api","bridge","transfers"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"amount\": 100.50,\"on_behalf_of\": \"merchant_123\",\"source\": { \"payment_rail\": \"ethereum\", \"currency\": \"usdc\" },\"destination\": { \"payment_rail\": \"ethereum\", \"currency\": \"usdc\", \"to_address\": \"0xFEEDBEEF\" }}"
+        }
+      }
+    }
+  ]
+}

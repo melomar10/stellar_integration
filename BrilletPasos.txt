@@ -1,0 +1,4 @@
+1. 1.	Aceptar términos y condiciones por medio de tos
+2.	Retorna el signed_agreement_id el cual guardamos junto a id del customer nuevo a crear, en este punto el cutomer solo tiene el número de teléfono 
+3.	 Pasamos a crear el customer del lado de bridged /api/bridge/customers
+4.	Creamos la cuenta virtual por medio de /api/bridge/customers/{{customer_id}}/va
