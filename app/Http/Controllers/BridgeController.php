@@ -21,7 +21,7 @@ class BridgeController extends Controller
             'residential_address.postal_code'       => 'required_if:address.country,USA|string',
             'residential_address.state'             => 'nullable|string',
             'birth_date'                => 'required|date',
-            'tax_identification_number' => 'required|string',
+            'identifying_information' => 'required|string',
             'signed_agreement_id'       => 'required|string',
         ]);
 
