@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\BridgeService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class BridgeController extends Controller
 {
@@ -18,13 +19,10 @@ class BridgeController extends Controller
             'residential_address.street_line_1'     => 'required|string',
             'residential_address.city'              => 'required|string',
             'residential_address.country'           => 'required|string',
-            'residential_address.postal_code'       => 'required_if:address.country,USA|string',
-            'residential_address.state'             => 'nullable|string',
             'birth_date'                => 'required|date',
-            'identifying_information' => 'required|string',
             'signed_agreement_id'       => 'required|string',
         ]);
-
+        //return response()->json($data);
         return response()->json($bridge->createCustomer($data));
     }
 
@@ -112,6 +110,9 @@ class BridgeController extends Controller
 
     public function kycCallback(Request $req)
     {
+        Log::info('KYC Callback', [
+            'request' => $req->all(),
+        ]);
         // Bridge te pasa signed_agreement_id aquí
         $signedId = $req->query('signed_agreement_id');
 

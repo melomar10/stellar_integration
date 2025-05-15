@@ -34,5 +34,10 @@ return [
         'base_uri' => env('BRIDGE_BASE_URI'),
         'api_key'  => env('BRIDGE_API_KEY'),
     ],
+    'alfred' => [
+        'base_uri' => env('ALFRED_BASE_URI'),
+        'api_key'  => env('ALFRED_API_KEY'),
+        'api_secret' => env('ALFRED_API_SECRET'),
+    ],
 
 ];

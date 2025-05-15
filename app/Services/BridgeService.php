@@ -88,13 +88,6 @@ class BridgeService
             ->post("{$this->baseUri}/virtual-accounts", $body)  // <-- endpoint corregido
             ->throw()
             ->json();
-
-        Log::info('Bridge API Response', [
-            'status' => $response->status(),
-            'body'   => $response->body(),
-        ]);
-
-        return $response->throw()->json();
     }
 
     /**
