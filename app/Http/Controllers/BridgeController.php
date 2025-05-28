@@ -5,9 +5,37 @@ namespace App\Http\Controllers;
 use App\Services\BridgeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use OpenApi\Annotations as OA;
 
 class BridgeController extends Controller
 {
+     /**
+     * @OA\Post(
+     *     path="/api/bridge/customers",
+     *     summary="Crear cliente",
+     *     tags={"bridge"},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"type", "first_name", "last_name", "email", "phone", "birth_date", "signed_agreement_id"},
+     *             @OA\Property(property="type", type="string", example="individual"),
+     *             @OA\Property(property="first_name", type="string", example="John"),
+     *             @OA\Property(property="last_name", type="string", example="Doe"),
+     *             @OA\Property(property="email", type="string", example="john@example.com"),
+     *             @OA\Property(property="phone", type="string", example="+1234567890"),
+     *             @OA\Property(property="birth_date", type="string", format="date", example="1990-01-01"),
+     *             @OA\Property(property="signed_agreement_id", type="string", example="abc123"),
+     *             @OA\Property(property="residential_address", type="object",
+     *                 @OA\Property(property="street_line_1", type="string", example="123 Main St"),
+     *                 @OA\Property(property="city", type="string", example="New York"),
+     *                 @OA\Property(property="country", type="string", example="US")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Cliente creado correctamente"),
+     *     @OA\Response(response=422, description="Error de validación")
+     * )
+     */
     public function createCustomer(Request $req, BridgeService $bridge)
     {
         $data = $req->validate([
@@ -26,6 +54,24 @@ class BridgeController extends Controller
         return response()->json($bridge->createCustomer($data));
     }
 
+    /**
+     * @OA\Post(
+     *     path="/api/bridge/customers/kyc-link",
+     *     summary="Generar link KYC",
+     *     tags={"bridge"},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"full_name", "email", "type"},
+     *             @OA\Property(property="full_name", type="string"),
+     *             @OA\Property(property="email", type="string", format="email"),
+     *             @OA\Property(property="type", type="string", enum={"individual", "business"})
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Link generado correctamente"),
+     *     @OA\Response(response=422, description="Datos inválidos")
+     * )
+     */
     public function generateKycLink(Request $req, BridgeService $bridge)
     {
         $validated = $req->validate([
@@ -42,6 +88,35 @@ class BridgeController extends Controller
         return response()->json($bridge->generateKycLink($data));
     }
 
+ /**
+     * @OA\Post(
+     *     path="/api/bridge/customers/{id}/va",
+     *     summary="Crear cuenta virtual",
+     *     tags={"bridge"},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"source", "destination"},
+     *             @OA\Property(property="source", type="object",
+     *                 @OA\Property(property="currency", type="string")
+     *             ),
+     *             @OA\Property(property="destination", type="object",
+     *                 @OA\Property(property="payment_rail", type="string"),
+     *                 @OA\Property(property="currency", type="string"),
+     *                 @OA\Property(property="address", type="string")
+     *             ),
+     *             @OA\Property(property="developer_fee_percent", type="number")
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Cuenta virtual creada")
+     * )
+     */
     public function createVirtualAccount(Request $req, BridgeService $bridge, $id)
     {
         $data = $req->validate([
@@ -62,6 +137,35 @@ class BridgeController extends Controller
         );
     }
 
+ /**
+     * @OA\Post(
+     *     path="/api/bridge/transfers",
+     *     summary="Crear transferencia",
+     *     tags={"bridge"},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"amount", "on_behalf_of", "source", "destination"},
+     *             @OA\Property(property="amount", type="number", example=100),
+     *             @OA\Property(property="on_behalf_of", type="string", example="partner_id"),
+     *             @OA\Property(property="source", type="object",
+     *                 @OA\Property(property="payment_rail", type="string"),
+     *                 @OA\Property(property="currency", type="string"),
+     *                 @OA\Property(property="from_address", type="string"),
+     *                 @OA\Property(property="external_account_id", type="string")
+     *             ),
+     *             @OA\Property(property="destination", type="object",
+     *                 @OA\Property(property="payment_rail", type="string"),
+     *                 @OA\Property(property="currency", type="string"),
+     *                 @OA\Property(property="external_account_id", type="string"),
+     *                 @OA\Property(property="to_address", type="string")
+     *             ),
+     *             @OA\Property(property="developer_fee_percent", type="number")
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Transferencia creada")
+     * )
+     */
     public function createTransfer(Request $req, BridgeService $bridge)
     {
         $data = $req->validate([
@@ -80,7 +184,14 @@ class BridgeController extends Controller
 
         return response()->json($bridge->createTransfer($data));
     }
-
+  /**
+     * @OA\Get(
+     *     path="/api/bridge/customers/tos-links",
+     *     summary="Generar ToS Link",
+     *     tags={"bridge"},
+     *     @OA\Response(response=200, description="Link generado")
+     * )
+     */
     // Generate ToS Link
     public function generateTosLink(BridgeService $bridge)
     {

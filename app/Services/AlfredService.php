@@ -100,8 +100,21 @@ class AlfredService
             ->post("{$this->baseUri}/offramp", $payload)
             ->throw()->json();
     }
-
-    // 9. Soporte
+    // 9. Create Payment Method
+    public function createPaymentMethod(array $payload): array
+    {
+        return Http::withHeaders($this->headers)
+            ->post("{$this->baseUri}/fiatAccounts", $payload)
+            ->throw()->json();
+    }
+    // 10. Listar requisitos KYC por país
+    public function getPaymentMethods(string $customerId): array
+    {
+        return Http::withHeaders($this->headers)->get("{$this->baseUri}/fiatAccounts", [
+            'customerId' => $customerId
+        ])->throw()->json();
+    }
+    // 11. Soporte
     public function createSupportTicket(array $payload): array
     {
         return Http::withHeaders($this->headers)
