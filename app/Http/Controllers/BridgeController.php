@@ -10,6 +10,7 @@ class BridgeController extends Controller
 {
     public function createCustomer(Request $req, BridgeService $bridge)
     {
+
         $data = $req->validate([
             'type'                      => 'required|in:individual,business',
             'first_name'                => 'required|string',
