@@ -166,9 +166,18 @@ class BridgeController extends Controller
      *     @OA\Response(response=200, description="Transferencia creada")
      * )
      */
-    public function createTransfer(Request $req, BridgeService $bridge)
+    public function createTransfer(Request $req, BridgeService $bridge,AlfredService $alfred)
     {
-        $data = $req->validate([
+            $data = $req->validate([
+            // Datos para Alfred (Offramp)
+            'email'            => 'nullable|email',
+            'phoneNumber'      => 'required|string',
+            'country'          => 'nullable|string',
+            'accountNumber'    => 'nullable|string',
+            'accountType'      => 'nullable|string',
+            'chain'            => 'nullable|string',
+
+            // Datos para Transfer (Bridge)
             'amount'                          => 'required|numeric',
             'on_behalf_of'                    => 'required|string',
             'source.payment_rail'             => 'required|string',
@@ -182,7 +191,53 @@ class BridgeController extends Controller
             'developer_fee_percent'           => 'nullable|numeric',
         ]);
 
-        return response()->json($bridge->createTransfer($data));
+
+       // 🔄 Data para Alfred (Offramp)
+        $alfredData = [
+            'email'         => $data['email'] ?? null,
+            'phoneNumber'   => $data['phoneNumber'],
+            'country'       => $data['country'] ?? null,
+            'accountNumber' => $data['accountNumber'] ?? null,
+            'accountType'   => $data['accountType'] ?? null,
+            'chain'         => $data['chain'] ?? 'DO',
+            'amount'        => $data['amount'],
+            'fromCurrency'  => $data['source']['currency'],
+            'toCurrency'    => $data['destination']['currency'],
+        ];
+
+        // 🔄 Data para Bridge (Transfer)
+        $bridgeData = [
+            'amount'                          => $data['amount'],
+            'on_behalf_of'                    => $data['on_behalf_of'],
+            'source' => [
+                'payment_rail'        => $data['source']['payment_rail'],
+                'currency'            => $data['source']['currency'],
+                'from_address'        => $data['source']['from_address'] ?? null,
+                'external_account_id' => $data['source']['external_account_id'] ?? null,
+            ],
+            'destination' => [
+                'payment_rail'        => $data['destination']['payment_rail'],
+                'currency'            => $data['destination']['currency'],
+                'external_account_id' => $data['destination']['external_account_id'] ?? null,
+                'to_address'          => $data['destination']['to_address'] ?? null,
+            ],
+            'developer_fee_percent' => $data['developer_fee_percent'] ?? null,
+        ];
+
+        try {
+          
+             $transferResult = $bridge->createTransfer($bridgeData);
+             $offrampResult = $alfred->handleOfframp($alfredData);
+            return response()->json([
+                'success' => true,
+                'offramp' => $offrampResult,
+                'transfer' => $transferResult,
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('Error en createTransfer', ['message' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+
     }
   /**
      * @OA\Get(

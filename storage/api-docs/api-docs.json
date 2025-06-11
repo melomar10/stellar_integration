@@ -6,6 +6,869 @@
         "version": "1.0.0"
     },
     "paths": {
+        "/api/customer": {
+            "get": {
+                "tags": [
+                    "Customer"
+                ],
+                "summary": "Obtener cliente por email",
+                "operationId": "getCustomerByEmail",
+                "parameters": [
+                    {
+                        "name": "email",
+                        "in": "query",
+                        "description": "Correo electrónico del cliente",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "email"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Cliente encontrado exitosamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 123
+                                                },
+                                                "name": {
+                                                    "type": "string",
+                                                    "example": "Juan Pérez"
+                                                },
+                                                "email": {
+                                                    "type": "string",
+                                                    "example": "juan@example.com"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Cliente no encontrado",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Cliente no encontrado con el email proporcionado."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Error de validación",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "El email es requerido y debe tener un formato válido"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error del servidor",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Error al obtener el customer"
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Exception message"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Customer"
+                ],
+                "summary": "Crear un nuevo customer",
+                "operationId": "createCustomer",
+                "requestBody": {
+                    "description": "Datos necesarios para registrar un nuevo customer",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "phoneNumber"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "usuario@dominio.com"
+                                    },
+                                    "phoneNumber": {
+                                        "type": "string",
+                                        "example": "+18095551234"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Customer creado exitosamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "customerId": {
+                                            "type": "string",
+                                            "example": "cus_123456"
+                                        },
+                                        "email": {
+                                            "type": "string",
+                                            "example": "usuario@dominio.com"
+                                        },
+                                        "phoneNumber": {
+                                            "type": "string",
+                                            "example": "+18095551234"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Error de validación",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Los datos enviados no son válidos"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Error al Crear el customer"
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Detalle del error"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/quote": {
+            "post": {
+                "tags": [
+                    "Quotes"
+                ],
+                "summary": "Crear una nueva cotización (Quote)",
+                "operationId": "createQuote",
+                "requestBody": {
+                    "description": "Datos necesarios para crear una cotización",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "fromCurrency",
+                                    "toCurrency",
+                                    "paymentMethodType",
+                                    "chain",
+                                    "fromAmount"
+                                ],
+                                "properties": {
+                                    "fromCurrency": {
+                                        "type": "string",
+                                        "maxLength": 3,
+                                        "minLength": 3,
+                                        "example": "USD"
+                                    },
+                                    "toCurrency": {
+                                        "type": "string",
+                                        "maxLength": 3,
+                                        "minLength": 2,
+                                        "example": "DO"
+                                    },
+                                    "paymentMethodType": {
+                                        "type": "string",
+                                        "example": "BANK"
+                                    },
+                                    "chain": {
+                                        "type": "string",
+                                        "example": "XLM"
+                                    },
+                                    "fromAmount": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 100
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Quote creada exitosamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "quoteId": {
+                                            "type": "string",
+                                            "example": "quote_abc123"
+                                        },
+                                        "fromAmount": {
+                                            "type": "number",
+                                            "example": 100
+                                        },
+                                        "toAmount": {
+                                            "type": "number",
+                                            "example": 5700
+                                        },
+                                        "rate": {
+                                            "type": "number",
+                                            "example": 57
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Error de validación",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Los datos enviados no son válidos"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Error al Crear la Quote"
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Detalle del error"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/payment-method": {
+            "post": {
+                "tags": [
+                    "Payment Methods"
+                ],
+                "summary": "Crear un nuevo método de pago",
+                "operationId": "createPaymentMethod",
+                "requestBody": {
+                    "description": "Datos necesarios para registrar un nuevo método de pago",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "type",
+                                    "fiatAccountFields",
+                                    "customerId"
+                                ],
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "PIX",
+                                            "SPEI",
+                                            "COELSA"
+                                        ],
+                                        "example": "PIX"
+                                    },
+                                    "fiatAccountFields": {
+                                        "required": [
+                                            "accountNumber",
+                                            "accountType"
+                                        ],
+                                        "properties": {
+                                            "accountNumber": {
+                                                "type": "string",
+                                                "example": "1234567890"
+                                            },
+                                            "accountType": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "cpf",
+                                                    "cnpj"
+                                                ],
+                                                "example": "cpf"
+                                            }
+                                        },
+                                        "type": "object"
+                                    },
+                                    "customerId": {
+                                        "type": "string",
+                                        "example": "cus_xyz123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Método de pago creado correctamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "id": {
+                                            "type": "string",
+                                            "example": "method_12345"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "example": "active"
+                                        },
+                                        "provider": {
+                                            "type": "string",
+                                            "example": "Banco do Brasil"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Error de validación",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Los datos enviados no son válidos"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Error al Crear métodos de pago"
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Excepción lanzada"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/payment-methods": {
+            "get": {
+                "tags": [
+                    "Payment Methods"
+                ],
+                "summary": "Obtener métodos de pago del cliente",
+                "operationId": "getPaymentMethods",
+                "parameters": [
+                    {
+                        "name": "customerId",
+                        "in": "query",
+                        "description": "ID del cliente registrado en Alfred",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "cus_abc123"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Lista de métodos de pago obtenida exitosamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "properties": {
+                                            "id": {
+                                                "type": "string",
+                                                "example": "method_123"
+                                            },
+                                            "type": {
+                                                "type": "string",
+                                                "example": "bank_account"
+                                            },
+                                            "provider": {
+                                                "type": "string",
+                                                "example": "Banco Popular"
+                                            },
+                                            "accountNumber": {
+                                                "type": "string",
+                                                "example": "********1234"
+                                            },
+                                            "currency": {
+                                                "type": "string",
+                                                "example": "DOP"
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Parámetro customerId ausente o inválido",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "customerId es requerido"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error del servidor",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Error al obtener métodos de pago"
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Mensaje de excepción"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/offramp": {
+            "post": {
+                "tags": [
+                    "Offramp"
+                ],
+                "summary": "Crear operación de Offramp",
+                "operationId": "createOfframp",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "customerId",
+                                    "quoteId",
+                                    "amount",
+                                    "fiatAccountId"
+                                ],
+                                "properties": {
+                                    "fromCurrency": {
+                                        "description": "Criptomoneda de origen (3 letras)",
+                                        "type": "string",
+                                        "example": "USD"
+                                    },
+                                    "toCurrency": {
+                                        "description": "Moneda fiat destino (3 letras)",
+                                        "type": "string",
+                                        "example": "DO"
+                                    },
+                                    "chain": {
+                                        "description": "Cadena de blockchain",
+                                        "type": "string",
+                                        "example": "XLM"
+                                    },
+                                    "customerId": {
+                                        "type": "string",
+                                        "maxLength": 100,
+                                        "example": "cus_abc123"
+                                    },
+                                    "quoteId": {
+                                        "type": "string",
+                                        "maxLength": 100,
+                                        "example": "quote_xyz456"
+                                    },
+                                    "amount": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "maximum": 1000,
+                                        "minimum": 10,
+                                        "example": 150.5
+                                    },
+                                    "fiatAccountId": {
+                                        "type": "string",
+                                        "maxLength": 100,
+                                        "example": "acc_789xyz"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Operación de Offramp creada exitosamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "offrampId": {
+                                            "type": "string",
+                                            "example": "offramp_123abc"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Error de validación",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Los datos enviados no son válidos"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error del servidor",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Error interno"
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Mensaje de excepción"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/alfred/create-customer-country": {
+            "post": {
+                "tags": [
+                    "Alfred"
+                ],
+                "summary": "Crear un customer con país",
+                "operationId": "98dfe47256ca4c1c8273dd5c271bdd73",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "phoneNumber",
+                                    "country"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "cliente@email.com"
+                                    },
+                                    "phoneNumber": {
+                                        "type": "string",
+                                        "example": "8295550000"
+                                    },
+                                    "country": {
+                                        "type": "string",
+                                        "example": "DO"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Customer creado",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "email": {
+                                            "type": "string"
+                                        },
+                                        "country": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error al crear el customer country"
+                    }
+                }
+            }
+        },
+        "/api/alfred/process-offramp": {
+            "post": {
+                "tags": [
+                    "Alfred"
+                ],
+                "summary": "Procesar Offramp completo (crea customer, método de pago, quote y ejecuta el flujo)",
+                "operationId": "fad748ed2857d5e6a8b6f20f392ed97d",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "phoneNumber",
+                                    "accountNumber",
+                                    "accountType",
+                                    "amount"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "usuario@ejemplo.com"
+                                    },
+                                    "phoneNumber": {
+                                        "type": "string",
+                                        "example": "8095551234"
+                                    },
+                                    "country": {
+                                        "type": "string",
+                                        "example": "DO"
+                                    },
+                                    "accountNumber": {
+                                        "type": "string",
+                                        "example": "123456789"
+                                    },
+                                    "accountType": {
+                                        "type": "string",
+                                        "example": "AHORRO"
+                                    },
+                                    "amount": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 150
+                                    },
+                                    "fromCurrency": {
+                                        "type": "string",
+                                        "example": "USD"
+                                    },
+                                    "toCurrency": {
+                                        "type": "string",
+                                        "example": "DO"
+                                    },
+                                    "chain": {
+                                        "type": "string",
+                                        "example": "DO"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Proceso Offramp exitoso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "offramp": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error en el proceso Offramp",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Ocurrió un error durante el flujo Offramp."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/bridge/customers": {
             "post": {
                 "tags": [
@@ -296,6 +1159,26 @@
         }
     },
     "tags": [
+        {
+            "name": "Customer",
+            "description": "Customer"
+        },
+        {
+            "name": "Quotes",
+            "description": "Quotes"
+        },
+        {
+            "name": "Payment Methods",
+            "description": "Payment Methods"
+        },
+        {
+            "name": "Offramp",
+            "description": "Offramp"
+        },
+        {
+            "name": "Alfred",
+            "description": "Alfred"
+        },
         {
             "name": "bridge",
             "description": "bridge"
