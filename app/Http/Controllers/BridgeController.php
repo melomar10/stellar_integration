@@ -6,6 +6,8 @@ use App\Services\BridgeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use OpenApi\Annotations as OA;
+use App\Models\Customer;
+use App\Models\VirtualAccount;
 
 class BridgeController extends Controller
 {
@@ -38,7 +40,6 @@ class BridgeController extends Controller
      */
     public function createCustomer(Request $req, BridgeService $bridge)
     {
-
         $data = $req->validate([
             'type'                      => 'required|in:individual,business',
             'first_name'                => 'required|string',
@@ -51,8 +52,30 @@ class BridgeController extends Controller
             'birth_date'                => 'required|date',
             'signed_agreement_id'       => 'required|string',
         ]);
-        //return response()->json($data);
-        return response()->json($bridge->createCustomer($data));
+
+        // Crear el cliente en la base de datos
+        $customer = Customer::create([
+            'type' => $data['type'],
+            'first_name' => $data['first_name'],
+            'last_name' => $data['last_name'],
+            'email' => $data['email'],
+            'phone' => $data['phone'],
+            'street_line_1' => $data['residential_address']['street_line_1'],
+            'city' => $data['residential_address']['city'],
+            'country' => $data['residential_address']['country'],
+            'birth_date' => $data['birth_date'],
+            'signed_agreement_id' => $data['signed_agreement_id']
+        ]);
+
+        // Enviar los datos a Bridge
+        $bridgeResponse = $bridge->createCustomer($data);
+
+        // Actualizar el bridge_customer_id si la respuesta fue exitosa
+        if (isset($bridgeResponse['id'])) {
+            $customer->update(['bridge_customer_id' => $bridgeResponse['id']]);
+        }
+
+        return response()->json($bridgeResponse);
     }
 
     /**
@@ -128,14 +151,25 @@ class BridgeController extends Controller
             'developer_fee_percent'      => 'nullable|numeric',
         ]);
 
-        // Castea el fee a string si viene
-        if (isset($data['developer_fee_percent'])) {
-            $data['developer_fee_percent'] = (string) $data['developer_fee_percent'];
+        // Crear la cuenta virtual en la base de datos
+        $virtualAccount = VirtualAccount::create([
+            'customer_id' => $id,
+            'source_currency' => $data['source']['currency'],
+            'destination_payment_rail' => $data['destination']['payment_rail'],
+            'destination_currency' => $data['destination']['currency'],
+            'destination_address' => $data['destination']['address'],
+            'developer_fee_percent' => isset($data['developer_fee_percent']) ? (string) $data['developer_fee_percent'] : null
+        ]);
+
+        // Enviar los datos a Bridge
+        $bridgeResponse = $bridge->createVirtualAccount($id, $data);
+
+        // Actualizar el bridge_virtual_account_id si la respuesta fue exitosa
+        if (isset($bridgeResponse['id'])) {
+            $virtualAccount->update(['bridge_virtual_account_id' => $bridgeResponse['id']]);
         }
 
-        return response()->json(
-            $bridge->createVirtualAccount($id, $data)
-        );
+        return response()->json($bridgeResponse);
     }
 
  /**
