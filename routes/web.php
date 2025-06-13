@@ -12,7 +12,7 @@ Route::get('/', function () {
 
 Route::get('/kyc/callback', [BridgeController::class, 'kycCallback'])
     ->name('bridge.kyc.callback');
-Route::get('/tos', [BridgeController::class, 'showTos'])
+Route::get('/tos/{id}', [BridgeController::class, 'showTos'])
     ->name('bridge.kyc.tos');
 
 
