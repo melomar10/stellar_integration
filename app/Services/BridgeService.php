@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Customer;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -74,20 +75,18 @@ class BridgeService
             'data'   => $payload,
         ]);
 
-
-        // Inyecta customer_id en el body
-        $body = array_merge($payload, [
-            'customer_id' => $customerId,
-        ]);
-
-        return Http::withHeaders([
+        $response = Http::withHeaders([
             'Api-Key'         => $this->apiKey,
             'Idempotency-Key' => Str::uuid()->toString(),
             'Content-Type'    => 'application/json',
-        ])
-            ->post("{$this->baseUri}/virtual-accounts", $body)  // <-- endpoint corregido
-            ->throw()
-            ->json();
+        ])->post("{$this->baseUri}/customers/{$customerId}/virtual_accounts", $payload);
+
+        Log::info('Bridge API Response', [
+            'status' => $response->status(),
+            'body'   => $response->body(),
+        ]);
+
+        return $response->throw()->json();
     }
 
     /**
@@ -118,24 +117,29 @@ class BridgeService
         return $response;
     }
     // 5. Generate ToS Link for new customer
-    public function generateTosLink(): array
+    public function generateTosLink($id): array
     {
-        //losg the request data
+        $customer = Customer::find($id);
+        if (!$customer || !$customer->bridge_customer_id) {
+            throw new \Exception('Customer not found or has no bridge_customer_id');
+        }
+
         Log::info('Bridge API Request', [
-            'url'    => "{$this->baseUri}/customers/tos_links",
-            'method' => 'POST',
+            'url'    => "{$this->baseUri}/customers/{$customer->bridge_customer_id}/tos_acceptance_link",
+            'method' => 'GET',
             'data'   => [],
         ]);
 
-        $callback = route('bridge.kyc.callback');
-        $url = "{$this->baseUri}/customers/tos_links?redirect_uri=" . urlencode($callback);
-
-        return Http::withHeaders([
+        $response = Http::withHeaders([
             'Api-Key'         => $this->apiKey,
-            'Idempotency-Key' => Str::uuid()->toString(),
             'Content-Type'    => 'application/json',
-        ])->post($url)
-            ->throw()
-            ->json();
+        ])->get("{$this->baseUri}/customers/{$customer->bridge_customer_id}/tos_acceptance_link");
+
+        Log::info('Bridge API Response', [
+            'status' => $response->status(),
+            'body'   => $response->body(),
+        ]);
+
+        return $response->throw()->json();
     }
 }

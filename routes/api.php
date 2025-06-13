@@ -21,7 +21,7 @@ Route::prefix('bridge')->group(function () {
     Route::post('customers/kyc-link', [BridgeController::class, 'generateKycLink']);
     Route::post('customers/{id}/va',  [BridgeController::class, 'createVirtualAccount']);
     Route::post('transfers',          [BridgeController::class, 'createTransfer']);
-    Route::post('customers/tos-links',  [BridgeController::class, 'generateTosLink']);
+    Route::post('customers/tos-links/{id}',  [BridgeController::class, 'generateTosLink']);
 });
 Route::prefix('alfred')->group(function () {
     Route::post('customers',                          [AlfredController::class, 'createCustomer']);
