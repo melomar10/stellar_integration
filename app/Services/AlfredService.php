@@ -183,6 +183,58 @@ class AlfredService
             ->throw()->json();
     }
 
+    public function handleOfframpDomi(array $data): array
+    {
+        // 1. Verificar o crear Customer
+        try {
+            $customer = $this->GetCustomerByEmail($data['email'] ?? '');
+        } catch (\Throwable $e) {
+            $customer = $this->createCustomer([
+                'email' => $data['email'] ?? null,
+                'phoneNumber' => $data['phoneNumber'],
+            ]);
+            $customer = $this->createCustomerCountry([
+                'email' => $data['email'] ?? null,
+                'phoneNumber' => $data['phoneNumber'],
+                'country' => $data['country'] ?? null,
+            ]);
+        }
+
+        // 2. Obtener o crear método de pago
+        try {
+            $paymentMethod = $this->getPaymentMethods($customer->customerId);
+        } catch (\Throwable $e) {
+            $paymentMethod = $this->createPaymentMethod([
+                'customerId' => $customer->customerId,
+                'type' => 'ACH_DOM',
+                'accountNumber' => $data['accountNumber'],
+                'accountType' => $data['accountType'],
+            ]);
+        }
+
+        // 3. Crear quote
+        $quote = $this->createQuote([
+            'fromCurrency' => $data['fromCurrency'],
+            'toCurrency' => $data['toCurrency'],
+            'chain' => $data['chain'],
+            'fromAmount' => $data['amount'],
+            'toAmount' => $data['amount'],
+            'paymentMethodType' => 'BANK',
+        ]);
+
+        // 4. Ejecutar Offramp
+        $offramp = $this->createOfframp([
+            'quoteId' => $quote->quoteId,
+            'customerId' => $customer->customerId,
+            'fiatAccountId' => $paymentMethod->fiatAccountId,
+            'chain' => $data['chain'],
+            'fromCurrency' => $data['fromCurrency'],
+            'toCurrency' => $data['toCurrency'],
+            'amount' => $data['amount'],
+        ]);
+
+        return $offramp;
+    }
     public function handleOfframp(array $data): array
     {
         // 1. Verificar o crear Customer
@@ -235,5 +287,4 @@ class AlfredService
 
         return $offramp;
     }
-
 }

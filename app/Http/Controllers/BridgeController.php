@@ -172,7 +172,7 @@ class BridgeController extends Controller
         return response()->json($bridgeResponse);
     }
 
- /**
+   /**
      * @OA\Post(
      *     path="/api/bridge/transfers",
      *     summary="Crear transferencia",
@@ -180,25 +180,58 @@ class BridgeController extends Controller
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
-     *             required={"amount", "on_behalf_of", "source", "destination"},
+     *             required={"amount", "on_behalf_of", "source", "destination", "phoneNumber"},
+     *             @OA\Property(property="email", type="string", format="email", example="usuario@correo.com"),
+     *             @OA\Property(property="phoneNumber", type="string", example="+18095551234"),
+     *
      *             @OA\Property(property="amount", type="number", example=100),
      *             @OA\Property(property="on_behalf_of", type="string", example="partner_id"),
+     *             
      *             @OA\Property(property="source", type="object",
-     *                 @OA\Property(property="payment_rail", type="string"),
-     *                 @OA\Property(property="currency", type="string"),
-     *                 @OA\Property(property="from_address", type="string"),
-     *                 @OA\Property(property="external_account_id", type="string")
+     *                 required={"payment_rail", "currency"},
+     *                 @OA\Property(property="payment_rail", type="string", example="crypto"),
+     *                 @OA\Property(property="currency", type="string", example="USDC"),
+     *                 @OA\Property(property="from_address", type="string", example="GABCD..."),
+     *                 @OA\Property(property="external_account_id", type="string", example="external-source-id")
      *             ),
+     *             
      *             @OA\Property(property="destination", type="object",
-     *                 @OA\Property(property="payment_rail", type="string"),
-     *                 @OA\Property(property="currency", type="string"),
-     *                 @OA\Property(property="external_account_id", type="string"),
-     *                 @OA\Property(property="to_address", type="string")
+     *                 required={"payment_rail", "currency"},
+     *                 @OA\Property(property="payment_rail", type="string", example="bank_transfer"),
+     *                 @OA\Property(property="currency", type="string", example="DOP"),
+     *                 @OA\Property(property="external_account_id", type="string", example="external-dest-id"),
+     *                 @OA\Property(property="to_address", type="string", example="some-wallet-or-bank-address")
      *             ),
-     *             @OA\Property(property="developer_fee_percent", type="number")
+     *
+     *             @OA\Property(property="developer_fee_percent", type="number", example=1.5)
      *         )
      *     ),
-     *     @OA\Response(response=200, description="Transferencia creada")
+     *     @OA\Response(
+     *         response=200,
+     *         description="Transferencia creada exitosamente",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Error de validación",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Los datos de entrada no son válidos."),
+     *             @OA\Property(property="errors", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Error del servidor",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Error interno al crear la transferencia"),
+     *             @OA\Property(property="error", type="string", example="Exception message")
+     *         )
+     *     )
      * )
      */
     public function createTransfer(Request $req, BridgeService $bridge,AlfredService $alfred)
@@ -207,10 +240,6 @@ class BridgeController extends Controller
             // Datos para Alfred (Offramp)
             'email'            => 'nullable|email',
             'phoneNumber'      => 'required|string',
-            'country'          => 'nullable|string',
-            'accountNumber'    => 'nullable|string',
-            'accountType'      => 'nullable|string',
-            'chain'            => 'nullable|string',
 
             // Datos para Transfer (Bridge)
             'amount'                          => 'required|numeric',
@@ -231,13 +260,6 @@ class BridgeController extends Controller
         $alfredData = [
             'email'         => $data['email'] ?? null,
             'phoneNumber'   => $data['phoneNumber'],
-            'country'       => $data['country'] ?? null,
-            'accountNumber' => $data['accountNumber'] ?? null,
-            'accountType'   => $data['accountType'] ?? null,
-            'chain'         => $data['chain'] ?? 'DO',
-            'amount'        => $data['amount'],
-            'fromCurrency'  => $data['source']['currency'],
-            'toCurrency'    => $data['destination']['currency'],
         ];
 
         // 🔄 Data para Bridge (Transfer)
@@ -262,6 +284,9 @@ class BridgeController extends Controller
         try {
           
              $transferResult = $bridge->createTransfer($bridgeData);
+
+             $offrampResult = $alfred->handleOfframpDomi($alfredData);
+                   
              $offrampResult = $alfred->handleOfframp($alfredData);
             return response()->json([
                 'success' => true,

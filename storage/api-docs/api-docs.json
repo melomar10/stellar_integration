@@ -1082,9 +1082,19 @@
                                     "amount",
                                     "on_behalf_of",
                                     "source",
-                                    "destination"
+                                    "destination",
+                                    "phoneNumber"
                                 ],
                                 "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "usuario@correo.com"
+                                    },
+                                    "phoneNumber": {
+                                        "type": "string",
+                                        "example": "+18095551234"
+                                    },
                                     "amount": {
                                         "type": "number",
                                         "example": 100
@@ -1094,41 +1104,58 @@
                                         "example": "partner_id"
                                     },
                                     "source": {
+                                        "required": [
+                                            "payment_rail",
+                                            "currency"
+                                        ],
                                         "properties": {
                                             "payment_rail": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "example": "crypto"
                                             },
                                             "currency": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "example": "USDC"
                                             },
                                             "from_address": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "example": "GABCD..."
                                             },
                                             "external_account_id": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "example": "external-source-id"
                                             }
                                         },
                                         "type": "object"
                                     },
                                     "destination": {
+                                        "required": [
+                                            "payment_rail",
+                                            "currency"
+                                        ],
                                         "properties": {
                                             "payment_rail": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "example": "bank_transfer"
                                             },
                                             "currency": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "example": "DOP"
                                             },
                                             "external_account_id": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "example": "external-dest-id"
                                             },
                                             "to_address": {
-                                                "type": "string"
+                                                "type": "string",
+                                                "example": "some-wallet-or-bank-address"
                                             }
                                         },
                                         "type": "object"
                                     },
                                     "developer_fee_percent": {
-                                        "type": "number"
+                                        "type": "number",
+                                        "example": 1.5
                                     }
                                 },
                                 "type": "object"
@@ -1138,7 +1165,70 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Transferencia creada"
+                        "description": "Transferencia creada exitosamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Error de validación",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Los datos de entrada no son válidos."
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error del servidor",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Error interno al crear la transferencia"
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Exception message"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 }
             }
