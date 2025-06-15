@@ -9,10 +9,10 @@ class AlfredController extends Controller
 {
     /**
  * @OA\Post(
- *     path="/api/customer",
+ *     path="/api/alfred/customers",
  *     summary="Crear un nuevo customer",
  *     operationId="createCustomer",
- *     tags={"Customer"},
+ *     tags={"customers"},
  *     @OA\RequestBody(
  *         required=true,
  *         description="Datos necesarios para registrar un nuevo customer",
@@ -68,18 +68,110 @@ class AlfredController extends Controller
         }
 
     }
-
+    /**
+     * @OA\Get(
+     *     path="/api/alfred/kyc-requirements",
+     *     summary="Obtener requisitos de KYC por país",
+     *     tags={"KYC"},
+     *     @OA\Parameter(
+     *         name="country",
+     *         in="query",
+     *         required=false,
+     *         description="Código del país (por defecto 'DO')",
+     *         @OA\Schema(type="string", example="DO")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Lista de requisitos KYC",
+     *         @OA\JsonContent(
+     *             type="array",
+     *             @OA\Items(type="string", example="passport", description="Tipo de documento requerido")
+     *         )
+     *     )
+     * )
+     */
     public function kycRequirements(Request $req, AlfredService $alfred)
     {
         $country = $req->query('country', 'DO');
         return response()->json($alfred->getKycRequirements($country));
     }
-
+    /**
+     * @OA\Post(
+     *     path="/api/alfred/customers/{id}/kyc",
+     *     summary="Agregar información de KYC para un cliente",
+     *     tags={"KYC"},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="ID del cliente",
+     *         @OA\Schema(type="string", example="client_12345")
+     *     ),
+     *     @OA\RequestBody(
+     *         required=false,
+     *         @OA\JsonContent(
+     *             @OA\Property(
+     *                 property="kycSubmission",
+     *                 type="object",
+     *                 @OA\Property(property="firstName", type="string", example="luis daniel"),
+     *                 @OA\Property(property="lastName", type="string", example="martinez"),
+     *                 @OA\Property(property="dateOfBirth", type="string", format="date", example="1997-03-04"),
+     *                 @OA\Property(property="country", type="string", example="DO"),
+     *                 @OA\Property(property="city", type="string", example="San jose de ocoa"),
+     *                 @OA\Property(property="zipCode", type="string", example="9000"),
+     *                 @OA\Property(property="address", type="string", example="30 de abril"),
+     *                 @OA\Property(property="state", type="string", example="san jose de ocoa"),
+     *                 @OA\Property(property="nationalities", type="array", @OA\Items(type="string"), example={"Dominicano"}),
+     *                 @OA\Property(property="phoneNumber", type="string", example="8298736708"),
+     *                 @OA\Property(property="occupation", type="string", example="developer"),
+     *                 @OA\Property(property="email", type="string", format="email", example="luisdanielcurso@gmail.com")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Información de KYC agregada exitosamente",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     )
+     * )
+     */
     public function addKycInfo(Request $req, AlfredService $alfred, $id)
     {
-        $kyc = $req->validate([ /* reglas según requirements */]);
+        $kyc = $req->input('kycSubmission', []);
         return response()->json($alfred->addKycInfo($id, $kyc));
     }
+    /**
+     * @OA\Post(
+     *     path="/api/alfred/customers/{id}/kyc/{sub}/submit",
+     *     summary="Enviar información de KYC para verificación",
+     *     tags={"KYC"},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="ID del cliente",
+     *         @OA\Schema(type="string", example="client_12345")
+     *     ),
+     *     @OA\Parameter(
+     *         name="sub",
+     *         in="path",
+     *         required=true,
+     *         description="ID del sub (sub-account o flujo KYC)",
+     *         @OA\Schema(type="string", example="kyc_flow_01")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="KYC enviado correctamente",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="string", example="submitted"),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     )
+     * )
+     */
 
     public function submitKyc(Request $req, AlfredService $alfred, $id, $sub)
     {
@@ -87,7 +179,7 @@ class AlfredController extends Controller
     }
 /**
  * @OA\Post(
- *     path="/api/quote",
+ *     path="/api/alfred/quotes",
  *     summary="Crear una nueva cotización (Quote)",
  *     operationId="createQuote",
  *     tags={"Quotes"},
@@ -96,11 +188,11 @@ class AlfredController extends Controller
  *         description="Datos necesarios para crear una cotización",
  *         @OA\JsonContent(
  *             required={"fromCurrency", "toCurrency", "paymentMethodType", "chain", "fromAmount"},
- *             @OA\Property(property="fromCurrency", type="string", example="USD", minLength=3, maxLength=3),
- *             @OA\Property(property="toCurrency", type="string", example="DO", minLength=2, maxLength=3),
+ *             @OA\Property(property="fromCurrency", type="string", example="USD", minLength=3, maxLength=4),
+ *             @OA\Property(property="toCurrency", type="string", example="DOP", minLength=3, maxLength=4),
  *             @OA\Property(property="paymentMethodType", type="string", example="BANK"),
- *             @OA\Property(property="chain", type="string", example="XLM"),
- *             @OA\Property(property="fromAmount", type="number", format="float", example=100)
+ *             @OA\Property(property="chain", type="string", example="USDC"),
+ *             @OA\Property(property="fromAmount", type="string", example=100)
  *         )
  *     ),
  *     @OA\Response(
@@ -135,15 +227,15 @@ class AlfredController extends Controller
     {
         try{
             $req->merge([
-                'fromCurrency'       => $req->input('fromCurrency', 'USD'),
-                'toCurrency'         => $req->input('toCurrency', 'DO'),
+                'fromCurrency'       => $req->input('fromCurrency', 'USDC'),
+                'toCurrency'         => $req->input('toCurrency', 'DOP'),
                 'paymentMethodType'  => $req->input('paymentMethodType', 'BANK'),
-                'chain'              => $req->input('chain', 'DO'),
+                'chain'              => $req->input('chain', 'DOP'),
             ]);
 
             $data = $req->validate([
-                'fromCurrency'       => 'required|string|size:3',
-                'toCurrency'         => 'required|string|size:3',
+                'fromCurrency'       => 'required|string',
+                'toCurrency'         => 'required|string',
                 'paymentMethodType'  => 'required|string|max:20',
                 'chain'              => 'required|string|max:10',
                 'fromAmount'         => 'required|numeric|min:10|max:1000', // Min 10, Max 1000 USDT
@@ -167,7 +259,7 @@ class AlfredController extends Controller
 
     /**
  * @OA\Post(
- *     path="/api/payment-method",
+ *     path="/api/alfred/payment-method",
  *     summary="Crear un nuevo método de pago",
  *     operationId="createPaymentMethod",
  *     tags={"Payment Methods"},
@@ -176,13 +268,14 @@ class AlfredController extends Controller
  *         description="Datos necesarios para registrar un nuevo método de pago",
  *         @OA\JsonContent(
  *             required={"type", "fiatAccountFields", "customerId"},
- *             @OA\Property(property="type", type="string", enum={"PIX", "SPEI", "COELSA"}, example="PIX"),
+ *             @OA\Property(property="type", type="string", enum={"PIX", "SPEI", "COELSA"}, example="ACH_DOM or LBTR"),
  *             @OA\Property(
  *                 property="fiatAccountFields",
  *                 type="object",
  *                 required={"accountNumber", "accountType"},
  *                 @OA\Property(property="accountNumber", type="string", example="1234567890"),
- *                 @OA\Property(property="accountType", type="string", enum={"cpf", "cnpj"}, example="cpf")
+ *                 @OA\Property(property="accountName", type="string", example="BANCO DE RESERVAS DE LA R.D"),
+ *                 @OA\Property(property="accountType", type="string", enum={"cpf", "cnpj"}, example="CORRIENTE or AHORRO")
  *             ),
  *             @OA\Property(property="customerId", type="string", example="cus_xyz123")
  *         )
@@ -219,15 +312,17 @@ class AlfredController extends Controller
        try {
 
             $req->merge([
-                'type' => $req->input('type', 'PIX'),
-                'fiatAccountFields.accountType' => $req->input('fiatAccountFields.accountType', 'cpf'),
+                'type' => $req->input('type', 'ACH_DOM'),
+                'fiatAccountFields.accountType' => $req->input('fiatAccountFields.accountType', 'AHORRO'),
+                'fiatAccountFields.accountName' => $req->input('fiatAccountFields.accountName', 'BANCO DE RESERVAS DE LA R.D'),
             ]);
 
             $data = $req->validate([
-                'type'                     => 'required|string|in:PIX,SPEI,COELSA', // limita a opciones conocidas
+                'type'                     => 'required|string|in:ACH_DOM,LBTR', // limita a opciones conocidas
                 'fiatAccountFields'        => 'required|array',
                 'fiatAccountFields.accountNumber' => 'required|string|max:50',
-                'fiatAccountFields.accountType'   => 'required|string|in:cpf,cnpj', // según los tipos válidos en tu sistema
+                'fiatAccountFields.accountName' => 'required|string|max:50',
+                'fiatAccountFields.accountType'   => 'required|string|in:AHORRO,CORRIENTE', // según los tipos válidos en tu sistema
                 'customerId'              => 'required|string|max:300',
             ]);
 
@@ -243,13 +338,13 @@ class AlfredController extends Controller
     }
 /**
  * @OA\Get(
- *     path="/api/payment-methods",
+ *     path="/api/alfred/payment-methods/{customerId}",
  *     summary="Obtener métodos de pago del cliente",
  *     operationId="getPaymentMethods",
  *     tags={"Payment Methods"},
  *     @OA\Parameter(
  *         name="customerId",
- *         in="query",
+ *         in="path",
  *         required=true,
  *         description="ID del cliente registrado en Alfred",
  *         @OA\Schema(type="string", example="cus_abc123")
@@ -287,10 +382,10 @@ class AlfredController extends Controller
  *     )
  * )
  */
-    public function getPaymentMethods(Request $req, AlfredService $alfred)
+    public function getPaymentMethods(Request $req, AlfredService $alfred, $customerId)
     {
           try {
-                $dto = $alfred->getPaymentMethods($req->query('customerId'));
+                $dto = $alfred->getPaymentMethods($customerId);
 
                 return response()->json((array) $dto, 200); 
 
@@ -303,7 +398,7 @@ class AlfredController extends Controller
     }
     /**
  * @OA\Post(
- *     path="/api/offramp",
+ *     path="/api/alfred/offramp",
  *     summary="Crear operación de Offramp",
  *     operationId="createOfframp",
  *     tags={"Offramp"},
@@ -375,7 +470,7 @@ class AlfredController extends Controller
     }
 /**
  * @OA\Post(
- *     path="/api/alfred/create-customer-country",
+ *     path="/api/alfred/customers/country",
  *     summary="Crear un customer con país",
  *     tags={"Alfred"},
  *     @OA\RequestBody(
@@ -424,13 +519,13 @@ class AlfredController extends Controller
     }
     /**
  * @OA\Get(
- *     path="/api/customer",
+ *     path="/api/alfred/customers/{email}",
  *     summary="Obtener cliente por email",
  *     operationId="getCustomerByEmail",
- *     tags={"Customer"},
+ *     tags={"Customers"},
  *     @OA\Parameter(
  *         name="email",
- *         in="query",
+ *         in="path",
  *         required=true,
  *         description="Correo electrónico del cliente",
  *         @OA\Schema(type="string", format="email")
@@ -476,22 +571,11 @@ class AlfredController extends Controller
  *     )
  * )
  */
-    public function GetCustomerByEmail(Request $req, AlfredService $alfred)
+    public function GetCustomerByEmail(Request $req, AlfredService $alfred,$email)
     {
         try {
-            // Validar el email
-            $validator = Validator::make($req->query(), [
-                'email' => 'required|email'
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'message' => 'El email es requerido y debe tener un formato válido',
-                    'errors' => $validator->errors()
-                ], 422);
-            }
-
-            $email = $req->query('email');
+ 
+            // $email = $req->query('email');
             $dto = $alfred->GetCustomerByEmail($email);
 
             return response()->json((array) $dto, 200);

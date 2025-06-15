@@ -5,6 +5,11 @@ namespace App\Services;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use App\Casts\CustomerDto;
+use App\Casts\FiatAccountDto;
+use App\Casts\QuoteResponseDto;
+use App\Casts\KycSubmissionDto;
+use App\Casts\FiatAccountResponseDto;
 
 class AlfredService
 {
@@ -37,16 +42,22 @@ class AlfredService
             $data['createdAt'],
         );
     }
-   public function GetCustomerByEmail(string $email): FiatAccountDto
+   public function GetCustomerByEmail(string $email): CustomerDto
     {
             $data = Http::withHeaders($this->headers)
             ->get("{$this->baseUri}/customers/find/{$email}")
             ->throw()
             ->json();
 
+        $first = $data[0] ?? null;
+
+        if (!$first) {
+            throw new \Exception('No se encontró el cliente');
+        }
+
         return new CustomerDto(
-            $data['customerId'],
-            $data['createdAt'],
+            $first['customerId'],
+            $first['createdAt'],
         );
     }
     // 1.1 Crear el Country de Customer
@@ -74,11 +85,31 @@ class AlfredService
     }
 
     // 3. Agregar información KYC
-    public function addKycInfo(string $customerId, array $kycData): array
+     public function addKycInfo(string $customerId, array $kycData): KycSubmissionDto
     {
-        return Http::withHeaders($this->headers)
-            ->post("{$this->baseUri}/customers/{$customerId}/kyc", $kycData)
-            ->throw()->json();
+        $data = Http::withHeaders($this->headers)
+            ->post("{$this->baseUri}/customers/{$customerId}/kyc", [
+                'kycSubmission' => $kycData,
+            ])
+            ->throw()
+            ->json();
+
+        return new KycSubmissionDto(
+            $data['submissionId'],
+            $data['createdAt'],
+            $data['firstName'] ?? null,
+            $data['lastName'] ?? null,
+            $data['dateOfBirth'] ?? null,
+            $data['country'] ?? null,
+            $data['city'] ?? null,
+            $data['zipCode'] ?? null,
+            $data['address'] ?? null,
+            $data['state'] ?? null,
+            $data['nationalities'] ?? [],
+            $data['phoneNumber'] ?? null,
+            $data['occupation'] ?? null,
+            $data['email'] ?? null
+        );
     }
 
     // 4. Agregar archivos KYC (ARG & MEX)
@@ -157,16 +188,18 @@ class AlfredService
     }
 
     // 10. Listar requisitos KYC por país
-    public function getPaymentMethods(string $customerId): FiatAccountDto
+    public function getPaymentMethods(string $customerId): FiatAccountResponseDto
     {
-            $data = Http::withHeaders($this->headers)
+            $response = Http::withHeaders($this->headers)
             ->get("{$this->baseUri}/fiatAccounts", [
                 'customerId' => $customerId
             ])
             ->throw()
             ->json();
+            
+        $data = $response[0]; // toma el primer método de pago
 
-        return new FiatAccountDto(
+        return new FiatAccountResponseDto(
             $data['fiatAccountId'],
             $data['type'],
             $data['accountNumber'],
@@ -181,59 +214,6 @@ class AlfredService
         return Http::withHeaders($this->headers)
             ->post("{$this->baseUri}/support", $payload)
             ->throw()->json();
-    }
-
-    public function handleOfframpDomi(array $data): array
-    {
-        // 1. Verificar o crear Customer
-        try {
-            $customer = $this->GetCustomerByEmail($data['email'] ?? '');
-        } catch (\Throwable $e) {
-            $customer = $this->createCustomer([
-                'email' => $data['email'] ?? null,
-                'phoneNumber' => $data['phoneNumber'],
-            ]);
-            $customer = $this->createCustomerCountry([
-                'email' => $data['email'] ?? null,
-                'phoneNumber' => $data['phoneNumber'],
-                'country' => $data['country'] ?? null,
-            ]);
-        }
-
-        // 2. Obtener o crear método de pago
-        try {
-            $paymentMethod = $this->getPaymentMethods($customer->customerId);
-        } catch (\Throwable $e) {
-            $paymentMethod = $this->createPaymentMethod([
-                'customerId' => $customer->customerId,
-                'type' => 'ACH_DOM',
-                'accountNumber' => $data['accountNumber'],
-                'accountType' => $data['accountType'],
-            ]);
-        }
-
-        // 3. Crear quote
-        $quote = $this->createQuote([
-            'fromCurrency' => $data['fromCurrency'],
-            'toCurrency' => $data['toCurrency'],
-            'chain' => $data['chain'],
-            'fromAmount' => $data['amount'],
-            'toAmount' => $data['amount'],
-            'paymentMethodType' => 'BANK',
-        ]);
-
-        // 4. Ejecutar Offramp
-        $offramp = $this->createOfframp([
-            'quoteId' => $quote->quoteId,
-            'customerId' => $customer->customerId,
-            'fiatAccountId' => $paymentMethod->fiatAccountId,
-            'chain' => $data['chain'],
-            'fromCurrency' => $data['fromCurrency'],
-            'toCurrency' => $data['toCurrency'],
-            'amount' => $data['amount'],
-        ]);
-
-        return $offramp;
     }
     public function handleOfframp(array $data): array
     {

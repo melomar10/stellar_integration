@@ -6,131 +6,10 @@
         "version": "1.0.0"
     },
     "paths": {
-        "/api/customer": {
-            "get": {
-                "tags": [
-                    "Customer"
-                ],
-                "summary": "Obtener cliente por email",
-                "operationId": "getCustomerByEmail",
-                "parameters": [
-                    {
-                        "name": "email",
-                        "in": "query",
-                        "description": "Correo electrónico del cliente",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "format": "email"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Cliente encontrado exitosamente",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean",
-                                            "example": true
-                                        },
-                                        "data": {
-                                            "properties": {
-                                                "id": {
-                                                    "type": "integer",
-                                                    "example": 123
-                                                },
-                                                "name": {
-                                                    "type": "string",
-                                                    "example": "Juan Pérez"
-                                                },
-                                                "email": {
-                                                    "type": "string",
-                                                    "example": "juan@example.com"
-                                                }
-                                            },
-                                            "type": "object"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Cliente no encontrado",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean",
-                                            "example": false
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Cliente no encontrado con el email proporcionado."
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "description": "Error de validación",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean",
-                                            "example": false
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "El email es requerido y debe tener un formato válido"
-                                        },
-                                        "errors": {
-                                            "type": "object"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Error del servidor",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean",
-                                            "example": false
-                                        },
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Error al obtener el customer"
-                                        },
-                                        "error": {
-                                            "type": "string",
-                                            "example": "Exception message"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    }
-                }
-            },
+        "/api/alfred/customers": {
             "post": {
                 "tags": [
-                    "Customer"
+                    "customers"
                 ],
                 "summary": "Crear un nuevo customer",
                 "operationId": "createCustomer",
@@ -227,7 +106,211 @@
                 }
             }
         },
-        "/api/quote": {
+        "/api/alfred/kyc-requirements": {
+            "get": {
+                "tags": [
+                    "KYC"
+                ],
+                "summary": "Obtener requisitos de KYC por país",
+                "operationId": "c5b07955f561ad9c34ccf75df46641ee",
+                "parameters": [
+                    {
+                        "name": "country",
+                        "in": "query",
+                        "description": "Código del país (por defecto 'DO')",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "DO"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Lista de requisitos KYC",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "description": "Tipo de documento requerido",
+                                        "type": "string",
+                                        "example": "passport"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/alfred/customers/{id}/kyc": {
+            "post": {
+                "tags": [
+                    "KYC"
+                ],
+                "summary": "Agregar información de KYC para un cliente",
+                "operationId": "8b19946d4919366d26befcacb5339e8a",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del cliente",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "client_12345"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "kycSubmission": {
+                                        "properties": {
+                                            "firstName": {
+                                                "type": "string",
+                                                "example": "luis daniel"
+                                            },
+                                            "lastName": {
+                                                "type": "string",
+                                                "example": "martinez"
+                                            },
+                                            "dateOfBirth": {
+                                                "type": "string",
+                                                "format": "date",
+                                                "example": "1997-03-04"
+                                            },
+                                            "country": {
+                                                "type": "string",
+                                                "example": "DO"
+                                            },
+                                            "city": {
+                                                "type": "string",
+                                                "example": "San jose de ocoa"
+                                            },
+                                            "zipCode": {
+                                                "type": "string",
+                                                "example": "9000"
+                                            },
+                                            "address": {
+                                                "type": "string",
+                                                "example": "30 de abril"
+                                            },
+                                            "state": {
+                                                "type": "string",
+                                                "example": "san jose de ocoa"
+                                            },
+                                            "nationalities": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                },
+                                                "example": [
+                                                    "Dominicano"
+                                                ]
+                                            },
+                                            "phoneNumber": {
+                                                "type": "string",
+                                                "example": "8298736708"
+                                            },
+                                            "occupation": {
+                                                "type": "string",
+                                                "example": "developer"
+                                            },
+                                            "email": {
+                                                "type": "string",
+                                                "format": "email",
+                                                "example": "luisdanielcurso@gmail.com"
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Información de KYC agregada exitosamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/alfred/customers/{id}/kyc/{sub}/submit": {
+            "post": {
+                "tags": [
+                    "KYC"
+                ],
+                "summary": "Enviar información de KYC para verificación",
+                "operationId": "cf47c11f3bcf63f559b4577e58af5177",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del cliente",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "client_12345"
+                        }
+                    },
+                    {
+                        "name": "sub",
+                        "in": "path",
+                        "description": "ID del sub (sub-account o flujo KYC)",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "kyc_flow_01"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "KYC enviado correctamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "submitted"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/alfred/quotes": {
             "post": {
                 "tags": [
                     "Quotes"
@@ -250,15 +333,15 @@
                                 "properties": {
                                     "fromCurrency": {
                                         "type": "string",
-                                        "maxLength": 3,
+                                        "maxLength": 4,
                                         "minLength": 3,
                                         "example": "USD"
                                     },
                                     "toCurrency": {
                                         "type": "string",
-                                        "maxLength": 3,
-                                        "minLength": 2,
-                                        "example": "DO"
+                                        "maxLength": 4,
+                                        "minLength": 3,
+                                        "example": "DOP"
                                     },
                                     "paymentMethodType": {
                                         "type": "string",
@@ -266,11 +349,10 @@
                                     },
                                     "chain": {
                                         "type": "string",
-                                        "example": "XLM"
+                                        "example": "USDC"
                                     },
                                     "fromAmount": {
-                                        "type": "number",
-                                        "format": "float",
+                                        "type": "string",
                                         "example": 100
                                     }
                                 },
@@ -350,7 +432,7 @@
                 }
             }
         },
-        "/api/payment-method": {
+        "/api/alfred/payment-method": {
             "post": {
                 "tags": [
                     "Payment Methods"
@@ -376,7 +458,7 @@
                                             "SPEI",
                                             "COELSA"
                                         ],
-                                        "example": "PIX"
+                                        "example": "ACH_DOM or LBTR"
                                     },
                                     "fiatAccountFields": {
                                         "required": [
@@ -388,13 +470,17 @@
                                                 "type": "string",
                                                 "example": "1234567890"
                                             },
+                                            "accountName": {
+                                                "type": "string",
+                                                "example": "BANCO DE RESERVAS DE LA R.D"
+                                            },
                                             "accountType": {
                                                 "type": "string",
                                                 "enum": [
                                                     "cpf",
                                                     "cnpj"
                                                 ],
-                                                "example": "cpf"
+                                                "example": "CORRIENTE or AHORRO"
                                             }
                                         },
                                         "type": "object"
@@ -476,7 +562,7 @@
                 }
             }
         },
-        "/api/payment-methods": {
+        "/api/alfred/payment-methods/{customerId}": {
             "get": {
                 "tags": [
                     "Payment Methods"
@@ -486,7 +572,7 @@
                 "parameters": [
                     {
                         "name": "customerId",
-                        "in": "query",
+                        "in": "path",
                         "description": "ID del cliente registrado en Alfred",
                         "required": true,
                         "schema": {
@@ -573,7 +659,7 @@
                 }
             }
         },
-        "/api/offramp": {
+        "/api/alfred/offramp": {
             "post": {
                 "tags": [
                     "Offramp"
@@ -698,13 +784,13 @@
                 }
             }
         },
-        "/api/alfred/create-customer-country": {
+        "/api/alfred/customers/country": {
             "post": {
                 "tags": [
                     "Alfred"
                 ],
                 "summary": "Crear un customer con país",
-                "operationId": "98dfe47256ca4c1c8273dd5c271bdd73",
+                "operationId": "71dbec55f59adf3ab68774ab17260b57",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -759,6 +845,129 @@
                     },
                     "500": {
                         "description": "Error al crear el customer country"
+                    }
+                }
+            }
+        },
+        "/api/alfred/customers/{email}": {
+            "get": {
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Obtener cliente por email",
+                "operationId": "getCustomerByEmail",
+                "parameters": [
+                    {
+                        "name": "email",
+                        "in": "path",
+                        "description": "Correo electrónico del cliente",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "email"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Cliente encontrado exitosamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 123
+                                                },
+                                                "name": {
+                                                    "type": "string",
+                                                    "example": "Juan Pérez"
+                                                },
+                                                "email": {
+                                                    "type": "string",
+                                                    "example": "juan@example.com"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Cliente no encontrado",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Cliente no encontrado con el email proporcionado."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Error de validación",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "El email es requerido y debe tener un formato válido"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error del servidor",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Error al obtener el customer"
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Exception message"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1250,8 +1459,12 @@
     },
     "tags": [
         {
-            "name": "Customer",
-            "description": "Customer"
+            "name": "customers",
+            "description": "customers"
+        },
+        {
+            "name": "KYC",
+            "description": "KYC"
         },
         {
             "name": "Quotes",
@@ -1268,6 +1481,10 @@
         {
             "name": "Alfred",
             "description": "Alfred"
+        },
+        {
+            "name": "Customers",
+            "description": "Customers"
         },
         {
             "name": "bridge",
