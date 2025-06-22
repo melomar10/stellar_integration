@@ -106,6 +106,77 @@
                 }
             }
         },
+        "/api/alfred/kyc/upload": {
+            "post": {
+                "tags": [
+                    "KYC"
+                ],
+                "summary": "Subir archivo KYC con tipo",
+                "operationId": "uploadKycFile",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "customerId",
+                                    "submissionId",
+                                    "fileBody",
+                                    "fileType"
+                                ],
+                                "properties": {
+                                    "customerId": {
+                                        "type": "string",
+                                        "example": "2f7433c5-1f7a-4743-a3ba-6489498ec5ca"
+                                    },
+                                    "submissionId": {
+                                        "type": "string",
+                                        "example": "648d9672-2bec-4bea-b4f7-ad0ca9f8bdf0"
+                                    },
+                                    "fileType": {
+                                        "type": "string",
+                                        "example": "Selfie"
+                                    },
+                                    "fileBody": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Archivo KYC subido correctamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Archivo recibido"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Error de validación"
+                    },
+                    "500": {
+                        "description": "Error del servidor"
+                    }
+                }
+            }
+        },
         "/api/alfred/kyc-requirements": {
             "get": {
                 "tags": [
@@ -335,7 +406,7 @@
                                         "type": "string",
                                         "maxLength": 4,
                                         "minLength": 3,
-                                        "example": "USD"
+                                        "example": "USDC"
                                     },
                                     "toCurrency": {
                                         "type": "string",
@@ -349,11 +420,16 @@
                                     },
                                     "chain": {
                                         "type": "string",
-                                        "example": "USDC"
+                                        "example": "XLM or MATIC "
                                     },
                                     "fromAmount": {
                                         "type": "string",
                                         "example": 100
+                                    },
+                                    "metadata": {
+                                        "description": "Información adicional opcional",
+                                        "type": "object",
+                                        "example": []
                                     }
                                 },
                                 "type": "object"
@@ -675,18 +751,19 @@
                                     "customerId",
                                     "quoteId",
                                     "amount",
-                                    "fiatAccountId"
+                                    "fiatAccountId",
+                                    "originAddress"
                                 ],
                                 "properties": {
                                     "fromCurrency": {
                                         "description": "Criptomoneda de origen (3 letras)",
                                         "type": "string",
-                                        "example": "USD"
+                                        "example": "USDC"
                                     },
                                     "toCurrency": {
                                         "description": "Moneda fiat destino (3 letras)",
                                         "type": "string",
-                                        "example": "DO"
+                                        "example": "DOP"
                                     },
                                     "chain": {
                                         "description": "Cadena de blockchain",
@@ -704,16 +781,17 @@
                                         "example": "quote_xyz456"
                                     },
                                     "amount": {
-                                        "type": "number",
-                                        "format": "float",
-                                        "maximum": 1000,
-                                        "minimum": 10,
-                                        "example": 150.5
+                                        "type": "string"
                                     },
                                     "fiatAccountId": {
                                         "type": "string",
                                         "maxLength": 100,
                                         "example": "acc_789xyz"
+                                    },
+                                    "originAddress": {
+                                        "description": "Dirección de origen de la transacción",
+                                        "type": "string",
+                                        "example": "GC3T...ABCD"
                                     }
                                 },
                                 "type": "object"
@@ -962,6 +1040,90 @@
                                         "error": {
                                             "type": "string",
                                             "example": "Exception message"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/alfred/customers/kyc/{id}": {
+            "get": {
+                "tags": [
+                    "KYC"
+                ],
+                "summary": "obtener el SubmissionId por cliente",
+                "operationId": "8d0c02abc2a6dd4351a1a3d05ee24e3c",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del cliente",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "client_12345"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Información de KYC agregada exitosamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/alfred/customers/kyc/verification/{id}": {
+            "get": {
+                "tags": [
+                    "KYC"
+                ],
+                "summary": "obtener la verificacion por cliente",
+                "operationId": "77b64faf7e0b422a1092c72fa5d18b70",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del cliente",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "client_12345"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Información de KYC agregada exitosamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "data": {
+                                            "type": "object"
                                         }
                                     },
                                     "type": "object"

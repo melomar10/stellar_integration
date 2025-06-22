@@ -68,6 +68,80 @@ class AlfredController extends Controller
         }
 
     }
+
+        /**
+         * @OA\Post(
+         *     path="/api/alfred/kyc/upload",
+         *     summary="Subir archivo KYC con tipo",
+         *     operationId="uploadKycFile",
+         *     tags={"KYC"},
+         *     @OA\RequestBody(
+         *         required=true,
+         *         @OA\MediaType(
+         *             mediaType="multipart/form-data",
+         *             @OA\Schema(
+         *                 required={"customerId", "submissionId", "fileBody", "fileType"},
+         *                 @OA\Property(property="customerId", type="string", example="2f7433c5-1f7a-4743-a3ba-6489498ec5ca"),
+         *                 @OA\Property(property="submissionId", type="string", example="648d9672-2bec-4bea-b4f7-ad0ca9f8bdf0"),
+         *                 @OA\Property(property="fileType", type="string", example="Selfie"),
+         *                 @OA\Property(property="fileBody", type="string", format="binary")
+         *             )
+         *         )
+         *     ),
+         *     @OA\Response(
+         *         response=200,
+         *         description="Archivo KYC subido correctamente",
+         *         @OA\JsonContent(
+         *             @OA\Property(property="status", type="string", example="success"),
+         *             @OA\Property(property="message", type="string", example="Archivo recibido")
+         *         )
+         *     ),
+         *     @OA\Response(
+         *         response=422,
+         *         description="Error de validación"
+         *     ),
+         *     @OA\Response(
+         *         response=500,
+         *         description="Error del servidor"
+         *     )
+         * )
+         */
+        public function uploadKycFile(Request $request, AlfredService $alfred)
+        {
+            try {
+                $validated = $request->validate([
+                    'customerId'   => 'required|string',
+                    'submissionId' => 'required|string',
+                    'fileType'     => 'required|string',
+                    'fileBody'     => 'required|file|max:10240'
+                ]);
+
+                $filePath = $request->file('fileBody')->getRealPath();
+                $fileName = $request->file('fileBody')->getClientOriginalName();
+
+                $response = $alfred->uploadKycFile(
+                    $validated['customerId'],
+                    $validated['submissionId'],
+                    $filePath,
+                    $fileName,
+                    $validated['fileType']
+                );
+
+                return response()->json($response);
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                return response()->json([
+                    'message' => 'Validación fallida',
+                    'errors' => $e->errors(),
+                ], 422);
+            } catch (\Exception $e) {
+                return response()->json([
+                    'message' => 'Error interno',
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+        }
+
+
     /**
      * @OA\Get(
      *     path="/api/alfred/kyc-requirements",
@@ -188,11 +262,17 @@ class AlfredController extends Controller
  *         description="Datos necesarios para crear una cotización",
  *         @OA\JsonContent(
  *             required={"fromCurrency", "toCurrency", "paymentMethodType", "chain", "fromAmount"},
- *             @OA\Property(property="fromCurrency", type="string", example="USD", minLength=3, maxLength=4),
+ *             @OA\Property(property="fromCurrency", type="string", example="USDC", minLength=3, maxLength=4),
  *             @OA\Property(property="toCurrency", type="string", example="DOP", minLength=3, maxLength=4),
  *             @OA\Property(property="paymentMethodType", type="string", example="BANK"),
- *             @OA\Property(property="chain", type="string", example="USDC"),
- *             @OA\Property(property="fromAmount", type="string", example=100)
+ *             @OA\Property(property="chain", type="string", example="XLM or MATIC "),
+ *             @OA\Property(property="fromAmount", type="string", example=100),
+ *             @OA\Property(
+ *                 property="metadata",
+ *                 type="object",
+ *                 description="Información adicional opcional",
+ *                 example={}
+ *             )
  *         )
  *     ),
  *     @OA\Response(
@@ -230,7 +310,9 @@ class AlfredController extends Controller
                 'fromCurrency'       => $req->input('fromCurrency', 'USDC'),
                 'toCurrency'         => $req->input('toCurrency', 'DOP'),
                 'paymentMethodType'  => $req->input('paymentMethodType', 'BANK'),
-                'chain'              => $req->input('chain', 'DOP'),
+                'chain'              => $req->input('chain', 'XLM'),
+                'toAmount'              => $req->input('toAmount', ''),
+                'metadata' => [],
             ]);
 
             $data = $req->validate([
@@ -238,7 +320,8 @@ class AlfredController extends Controller
                 'toCurrency'         => 'required|string',
                 'paymentMethodType'  => 'required|string|max:20',
                 'chain'              => 'required|string|max:10',
-                'fromAmount'         => 'required|numeric|min:10|max:1000', // Min 10, Max 1000 USDT
+                'fromAmount'         => 'required|numeric|min:10|max:1000', 
+                'toAmount'         => 'numeric|min:10|max:1000', 
             ]);
 
            $dto = $alfred->createQuote($data);
@@ -397,70 +480,86 @@ class AlfredController extends Controller
             }
     }
     /**
- * @OA\Post(
- *     path="/api/alfred/offramp",
- *     summary="Crear operación de Offramp",
- *     operationId="createOfframp",
- *     tags={"Offramp"},
- *     @OA\RequestBody(
- *         required=true,
- *         @OA\JsonContent(
- *             required={"customerId", "quoteId", "amount", "fiatAccountId"},
- *             @OA\Property(property="fromCurrency", type="string", example="USD", description="Criptomoneda de origen (3 letras)"),
- *             @OA\Property(property="toCurrency", type="string", example="DO", description="Moneda fiat destino (3 letras)"),
- *             @OA\Property(property="chain", type="string", example="XLM", description="Cadena de blockchain"),
- *             @OA\Property(property="customerId", type="string", example="cus_abc123", maxLength=100),
- *             @OA\Property(property="quoteId", type="string", example="quote_xyz456", maxLength=100),
- *             @OA\Property(property="amount", type="number", format="float", example=150.50, minimum=10, maximum=1000),
- *             @OA\Property(property="fiatAccountId", type="string", example="acc_789xyz", maxLength=100)
- *         )
- *     ),
- *     @OA\Response(
- *         response=200,
- *         description="Operación de Offramp creada exitosamente",
- *         @OA\JsonContent(
- *             type="object",
- *             @OA\Property(property="status", type="string", example="success"),
- *             @OA\Property(property="offrampId", type="string", example="offramp_123abc")
- *         )
- *     ),
- *     @OA\Response(
- *         response=422,
- *         description="Error de validación",
- *         @OA\JsonContent(
- *             @OA\Property(property="message", type="string", example="Los datos enviados no son válidos"),
- *             @OA\Property(property="errors", type="object")
- *         )
- *     ),
- *     @OA\Response(
- *         response=500,
- *         description="Error del servidor",
- *         @OA\JsonContent(
- *             @OA\Property(property="message", type="string", example="Error interno"),
- *             @OA\Property(property="error", type="string", example="Mensaje de excepción")
- *         )
- *     )
- * )
- */
+     * @OA\Post(
+     *     path="/api/alfred/offramp",
+     *     summary="Crear operación de Offramp",
+     *     operationId="createOfframp",
+     *     tags={"Offramp"},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"customerId", "quoteId", "amount", "fiatAccountId", "originAddress"},
+     *             @OA\Property(property="fromCurrency", type="string", example="USDC", description="Criptomoneda de origen (3 letras)"),
+     *             @OA\Property(property="toCurrency", type="string", example="DOP", description="Moneda fiat destino (3 letras)"),
+     *             @OA\Property(property="chain", type="string", example="XLM", description="Cadena de blockchain"),
+     *             @OA\Property(property="customerId", type="string", example="cus_abc123", maxLength=100),
+     *             @OA\Property(property="quoteId", type="string", example="quote_xyz456", maxLength=100),
+     *             @OA\Property(property="amount", type="string"),
+     *             @OA\Property(property="fiatAccountId", type="string", example="acc_789xyz", maxLength=100),
+     *             @OA\Property(property="originAddress", type="string", example="GC3T...ABCD", description="Dirección de origen de la transacción")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Operación de Offramp creada exitosamente",
+     *         @OA\JsonContent(
+     *             type="object",
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="offrampId", type="string", example="offramp_123abc")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Error de validación",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Los datos enviados no son válidos"),
+     *             @OA\Property(property="errors", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Error del servidor",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Error interno"),
+     *             @OA\Property(property="error", type="string", example="Mensaje de excepción")
+     *         )
+     *     )
+     * )
+     */
     public function createOfframp(Request $req, AlfredService $alfred)
     {
-        $req->merge([
-            'fromCurrency' => $req->input('fromCurrency', 'USD'),
-            'toCurrency'   => $req->input('toCurrency', 'DO'),
-            'chain'        => $req->input('chain', 'DO'),
-        ]);
+        try {
+            $req->merge([
+                'fromCurrency' => $req->input('fromCurrency', 'USDC'),
+                'toCurrency'   => $req->input('toCurrency', 'DOP'),
+                'chain'        => $req->input('chain', 'XLM'),
+            ]);
 
-        $data = $req->validate([
-            'fromCurrency'   => 'required|string|size:3',     // Ej: USDT
-            'toCurrency'     => 'required|string|size:3',     // Ej: MEX
-            'chain'          => 'required|string|max:10',     // Ej: XLM
-            'customerId'     => 'required|string|max:100',
-            'quoteId'        => 'required|string|max:100',
-            'amount'         => 'required|numeric|min:10|max:1000',
-            'fiatAccountId'  => 'required|string|max:100',
-        ]);
+            $data = $req->validate([
+                'fromCurrency'   => 'required|string|size:4',
+                'toCurrency'     => 'required|string|size:3',
+                'chain'          => 'required|string|max:10',
+                'customerId'     => 'required|string|max:100',
+                'quoteId'        => 'required|string|max:100',
+                'amount'         => 'required|numeric|min:10|max:1000',
+                'fiatAccountId'  => 'required|string|max:100',
+                'originAddress'  => 'required|string|max:100',
+            ]);
 
-        return response()->json($alfred->createOfframp($data));
+            $result = $alfred->createOfframp($data);
+            return response()->json($result, 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Los datos enviados no son válidos',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error interno',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function createSupport(Request $req, AlfredService $alfred)
@@ -587,6 +686,60 @@ class AlfredController extends Controller
             ], 500);
         }
    }
+     /**
+     * @OA\Get(
+     *     path="/api/alfred/customers/kyc/{id}",
+     *     summary="obtener el SubmissionId por cliente",
+     *     tags={"KYC"},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="ID del cliente",
+     *         @OA\Schema(type="string", example="client_12345")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Información de KYC agregada exitosamente",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     )
+     * )
+     */
+    public function getKYCSubmission(Request $req, AlfredService $alfred, $id)
+    {
+        return response()->json($alfred->getKYCSubmission($id));
+    }
+    
+       /**
+     * @OA\Get(
+     *     path="/api/alfred/customers/kyc/verification/{id}",
+     *     summary="obtener la verificacion por cliente",
+     *     tags={"KYC"},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="ID del cliente",
+     *         @OA\Schema(type="string", example="client_12345")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Información de KYC agregada exitosamente",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     )
+     * )
+     */
+    public function getKYCVerification(Request $req, AlfredService $alfred, $id)
+    {
+        return response()->json($alfred->getKYCVerification($id));
+    }
+
     /**
      * @OA\Post(
      *     path="/api/alfred/process-offramp",

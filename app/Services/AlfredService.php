@@ -10,6 +10,8 @@ use App\Casts\FiatAccountDto;
 use App\Casts\QuoteResponseDto;
 use App\Casts\KycSubmissionDto;
 use App\Casts\FiatAccountResponseDto;
+use App\Casts\QuoteFeeDto;
+use App\Casts\QuoteMetadataDto;
 
 class AlfredService
 {
@@ -84,6 +86,17 @@ class AlfredService
         ])->throw()->json();
     }
 
+    // 2. Listar requisitos KYC por país
+    public function getKYCSubmission(string $customerId): array
+    {
+        return Http::withHeaders($this->headers)->get("{$this->baseUri}/customers/kyc/{$customerId}",)->throw()->json();
+    }
+
+    public function getKYCVerification(string $customerId): array
+    {
+        return Http::withHeaders($this->headers)->get("{$this->baseUri}/customers/{$customerId}/verification/url",)->throw()->json();
+    }
+
     // 3. Agregar información KYC
      public function addKycInfo(string $customerId, array $kycData): KycSubmissionDto
     {
@@ -113,13 +126,21 @@ class AlfredService
     }
 
     // 4. Agregar archivos KYC (ARG & MEX)
-    public function uploadKycFile(string $customerId, string $submissionId, string $filePath): array
+   public function uploadKycFile(string $customerId, string $submissionId, string $filePath, string $fileType, string $fileName = null): array
     {
         return Http::withHeaders($this->headers)
-            ->attach('file', fopen($filePath, 'r'))
-            ->post("{$this->baseUri}/customers/{$customerId}/kyc/{$submissionId}/files")
-            ->throw()->json();
+            ->asMultipart()
+            ->attach('fileBody', fopen($filePath, 'r'), $fileName ?? basename($filePath))
+            ->post("{$this->baseUri}/customers/{$customerId}/kyc/{$submissionId}/files", [
+                [
+                    'name' => 'fileType',
+                    'contents' => $fileType,
+                ]
+            ])
+            ->throw()
+            ->json();
     }
+
 
     // 5. Enviar KYC
     public function submitKyc(string $customerId, string $submissionId): array
@@ -130,30 +151,11 @@ class AlfredService
     }
 
     // 6. Crear Quote
-    public function createQuote(array $payload): QuoteResponseDto
+    public function createQuote(array $payload): array
     {
-        $data = Http::withHeaders($this->headers)
+         return Http::withHeaders($this->headers)
             ->post("{$this->baseUri}/quotes", $payload)
             ->throw()->json();
-
-              $fees = array_map(fn ($f) => new QuoteFeeDto($f['type'], $f['amount'], $f['currency']), $data['fees']);
-
-            $metadata = new QuoteMetadataDto(
-                $data['metadata']['developerId'],
-                $data['metadata']['markupFeeRate']
-            );
-
-            return new QuoteResponseDto(
-                $data['quoteId'],
-                $data['fromCurrency'],
-                $data['toCurrency'],
-                $data['fromAmount'],
-                $data['toAmount'],
-                $data['expiration'],
-                $fees,
-                $data['rate'],
-                $metadata
-            );
     }
 
     // 7. Onramp
@@ -245,13 +247,14 @@ class AlfredService
         }
 
         // 3. Crear quote
-        $quote = $this->createQuote([
-            'fromCurrency' => $data['fromCurrency'],
-            'toCurrency' => $data['toCurrency'],
-            'chain' => $data['chain'],
-            'fromAmount' => $data['amount'],
-            'toAmount' => $data['amount'],
-            'paymentMethodType' => 'BANK',
+       $quote = $this->createQuote([
+            'fromCurrency'       => 'USDC',
+            'toCurrency'         => 'DOP',
+            'chain'              => 'XLM',
+            'fromAmount'         => $data['amount'],
+            'paymentMethodType'  => 'BANK',
+            'metadata'           => [],
+            'toAmount'           => '',
         ]);
 
         // 4. Ejecutar Offramp
@@ -259,10 +262,11 @@ class AlfredService
             'quoteId' => $quote->quoteId,
             'customerId' => $customer->customerId,
             'fiatAccountId' => $paymentMethod->fiatAccountId,
-            'chain' => $data['chain'],
-            'fromCurrency' => $data['fromCurrency'],
-            'toCurrency' => $data['toCurrency'],
+            'chain' => 'XLM',
+            'fromCurrency' => 'USDC',
+            'toCurrency' => 'DOP',
             'amount' => $data['amount'],
+            'originAddress' => $data['originAddress'],
         ]);
 
         return $offramp;

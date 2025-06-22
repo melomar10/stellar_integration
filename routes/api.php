@@ -26,10 +26,13 @@ Route::prefix('bridge')->group(function () {
 Route::prefix('alfred')->group(function () {
     Route::post('customers',                          [AlfredController::class, 'createCustomer']);
     Route::get('kyc-requirements',                    [AlfredController::class, 'kycRequirements']);
+    Route::get('customers/kyc/{customerId}',          [AlfredController::class, 'getKYCSubmission']);
+    Route::get('customers/kyc/verification/{id}',          [AlfredController::class, 'getKYCVerification']);
+    Route::post('kyc/upload',                         [AlfredController::class, 'uploadKycFile']);
     Route::post('customers/{id}/kyc',                 [AlfredController::class, 'addKycInfo']);
     Route::post('customers/{id}/kyc/{sub}/submit',    [AlfredController::class, 'submitKyc']);
     Route::post('quotes',                             [AlfredController::class, 'createQuote']);
-    Route::get('payment-methods/{customerId}',                [AlfredController::class, 'getPaymentMethods']);
+    Route::get('payment-methods/{customerId}',        [AlfredController::class, 'getPaymentMethods']);
     Route::post('payment-method',                     [AlfredController::class, 'createPaymentMethod']);
     Route::post('onramp',                             [AlfredController::class, 'createOnramp']);
     Route::post('offramp',                            [AlfredController::class, 'createOfframp']);
