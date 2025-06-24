@@ -329,6 +329,114 @@
                 }
             }
         },
+        "/api/alfred/kyc/update": {
+            "put": {
+                "tags": [
+                    "KYC"
+                ],
+                "summary": "Actualizar información de KYC de un cliente",
+                "operationId": "4f54cb9f320a684255bee478a3f5de09",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "customerId": {
+                                        "type": "string",
+                                        "example": "client_12345"
+                                    },
+                                    "submissionId": {
+                                        "type": "string",
+                                        "example": "subm_67890"
+                                    },
+                                    "kycUpdateSubmission": {
+                                        "properties": {
+                                            "firstName": {
+                                                "type": "string",
+                                                "example": "Luis"
+                                            },
+                                            "lastName": {
+                                                "type": "string",
+                                                "example": "Martinez"
+                                            },
+                                            "dateOfBirth": {
+                                                "type": "string",
+                                                "format": "date",
+                                                "example": "1997-03-04"
+                                            },
+                                            "country": {
+                                                "type": "string",
+                                                "example": "Republica Dominicana"
+                                            },
+                                            "countryCode": {
+                                                "type": "string",
+                                                "example": "RD"
+                                            },
+                                            "city": {
+                                                "type": "string",
+                                                "example": "San Jose de Ocoa"
+                                            },
+                                            "zipCode": {
+                                                "type": "string",
+                                                "example": "9000"
+                                            },
+                                            "address": {
+                                                "type": "string",
+                                                "example": "30 de abril"
+                                            },
+                                            "state": {
+                                                "type": "string",
+                                                "example": "San Jose de Ocoa"
+                                            },
+                                            "phoneNumber": {
+                                                "type": "string",
+                                                "example": "+18298736708"
+                                            },
+                                            "occupation": {
+                                                "type": "string",
+                                                "example": "Developer"
+                                            },
+                                            "email": {
+                                                "type": "string",
+                                                "example": "luisdanielcurso@gmail.com"
+                                            },
+                                            "dni": {
+                                                "type": "string",
+                                                "example": "40227520364"
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "KYC actualizado exitosamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/alfred/customers/{id}/kyc/{sub}/submit": {
             "post": {
                 "tags": [
@@ -1072,6 +1180,100 @@
                 "responses": {
                     "200": {
                         "description": "Información de KYC agregada exitosamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/alfred/customers/kyc/info/{id}": {
+            "get": {
+                "tags": [
+                    "KYC"
+                ],
+                "summary": "obtener la informacion que suministra el usuario del kyc",
+                "operationId": "d3a1e6b24ade5387843d281ced111f08",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del cliente",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "client_12345"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Información de KYC agregada exitosamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/alfred/customers/{id}/kyc/{submissionId}/status": {
+            "get": {
+                "tags": [
+                    "KYC"
+                ],
+                "summary": "Obtener el estado de KYC",
+                "operationId": "f594cebac1704d900e8da430578966a4",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del cliente",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "client_12345"
+                        }
+                    },
+                    {
+                        "name": "submissionId",
+                        "in": "path",
+                        "description": "ID de la solicitud KYC",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "submission_67890"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Estado de KYC obtenido exitosamente",
                         "content": {
                             "application/json": {
                                 "schema": {

@@ -92,9 +92,29 @@ class AlfredService
         return Http::withHeaders($this->headers)->get("{$this->baseUri}/customers/kyc/{$customerId}",)->throw()->json();
     }
 
+    public function getKYCStatus(string $customerId, string $submissionId): array
+    {
+        return Http::withHeaders($this->headers)->get("{$this->baseUri}/customers/{$customerId}/kyc/{$submissionId}/status",)->throw()->json();
+    }
+
+      // obtener informacion del kyc por usuario 
+    public function getKYCInfo(string $customerId): array
+    {
+        return Http::withHeaders($this->headers)->get("{$this->baseUri}/customers/{$customerId}",)->throw()->json();
+    }
+
     public function getKYCVerification(string $customerId): array
     {
         return Http::withHeaders($this->headers)->get("{$this->baseUri}/customers/{$customerId}/verification/url",)->throw()->json();
+    }
+
+  //editar la informacion brindada por el usuario en el kyc 
+    public function updateKYCInfo(array $data): array
+    {
+        return Http::withHeaders($this->headers)
+            ->put("{$this->baseUri}/customers/kyc", $data)
+            ->throw()
+            ->json();
     }
 
     // 3. Agregar información KYC

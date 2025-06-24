@@ -199,6 +199,7 @@ class AlfredController extends Controller
      *                 @OA\Property(property="phoneNumber", type="string", example="8298736708"),
      *                 @OA\Property(property="occupation", type="string", example="developer"),
      *                 @OA\Property(property="email", type="string", format="email", example="luisdanielcurso@gmail.com")
+     *                 @OA\Property(property="dni", type="string", example="40227520364")
      *             )
      *         )
      *     ),
@@ -217,6 +218,56 @@ class AlfredController extends Controller
         $kyc = $req->input('kycSubmission', []);
         return response()->json($alfred->addKycInfo($id, $kyc));
     }
+
+        /**
+     * @OA\Put(
+     *     path="/api/alfred/kyc/update",
+     *     summary="Actualizar información de KYC de un cliente",
+     *     tags={"KYC"},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="customerId", type="string", example="client_12345"),
+     *             @OA\Property(property="submissionId", type="string", example="subm_67890"),
+     *             @OA\Property(
+     *                 property="kycUpdateSubmission",
+     *                 type="object",
+     *                 @OA\Property(property="firstName", type="string", example="Luis"),
+     *                 @OA\Property(property="lastName", type="string", example="Martinez"),
+     *                 @OA\Property(property="dateOfBirth", type="string", format="date", example="1997-03-04"),
+     *                 @OA\Property(property="country", type="string", example="Republica Dominicana"),
+     *                 @OA\Property(property="countryCode", type="string", example="RD"),
+     *                 @OA\Property(property="city", type="string", example="San Jose de Ocoa"),
+     *                 @OA\Property(property="zipCode", type="string", example="9000"),
+     *                 @OA\Property(property="address", type="string", example="30 de abril"),
+     *                 @OA\Property(property="state", type="string", example="San Jose de Ocoa"),
+     *                 @OA\Property(property="phoneNumber", type="string", example="+18298736708"),
+     *                 @OA\Property(property="occupation", type="string", example="Developer"),
+     *                 @OA\Property(property="email", type="string", example="luisdanielcurso@gmail.com"),
+     *                 @OA\Property(property="dni", type="string", example="40227520364")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="KYC actualizado exitosamente",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     )
+     * )
+     */
+    public function updateKYCInfo(Request $req, AlfredService $alfred)
+    {
+        $payload = $req->only(['customerId', 'submissionId', 'kycUpdateSubmission']);
+
+        return response()->json(
+            $alfred->updateKYCInfo($payload)
+        );
+    }
+
+
     /**
      * @OA\Post(
      *     path="/api/alfred/customers/{id}/kyc/{sub}/submit",
@@ -712,7 +763,69 @@ class AlfredController extends Controller
     {
         return response()->json($alfred->getKYCSubmission($id));
     }
+
+      /**
+     * @OA\Get(
+     *     path="/api/alfred/customers/kyc/info/{id}",
+     *     summary="obtener la informacion que suministra el usuario del kyc",
+     *     tags={"KYC"},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="ID del cliente",
+     *         @OA\Schema(type="string", example="client_12345")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Información de KYC agregada exitosamente",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     )
+     * )
+     */
+    public function getKYCInfo(Request $req, AlfredService $alfred, $id)
+    {
+        return response()->json($alfred->getKYCInfo($id));
+    }
     
+
+     /**
+     * @OA\Get(
+     *     path="/api/alfred/customers/{id}/kyc/{submissionId}/status",
+     *     summary="Obtener el estado de KYC",
+     *     tags={"KYC"},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         required=true,
+     *         description="ID del cliente",
+     *         @OA\Schema(type="string", example="client_12345")
+     *     ),
+     *     @OA\Parameter(
+     *         name="submissionId",
+     *         in="path",
+     *         required=true,
+     *         description="ID de la solicitud KYC",
+     *         @OA\Schema(type="string", example="submission_67890")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Estado de KYC obtenido exitosamente",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="string", example="success"),
+     *             @OA\Property(property="data", type="object")
+     *         )
+     *     )
+     * )
+     */
+    public function getKYCStatus(Request $req, AlfredService $alfred, $id, $submissionId)
+    {
+        return response()->json($alfred->getKYCStatus($id, $submissionId));
+    }
+
        /**
      * @OA\Get(
      *     path="/api/alfred/customers/kyc/verification/{id}",
