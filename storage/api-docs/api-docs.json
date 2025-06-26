@@ -135,7 +135,7 @@
                                     },
                                     "fileType": {
                                         "type": "string",
-                                        "example": "Selfie"
+                                        "example": "National ID Front or National ID Back"
                                     },
                                     "fileBody": {
                                         "type": "string",
@@ -296,6 +296,10 @@
                                                 "type": "string",
                                                 "format": "email",
                                                 "example": "luisdanielcurso@gmail.com"
+                                            },
+                                            "dni": {
+                                                "type": "string",
+                                                "example": "40227520364"
                                             }
                                         },
                                         "type": "object"

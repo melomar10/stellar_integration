@@ -83,7 +83,7 @@ class AlfredController extends Controller
          *                 required={"customerId", "submissionId", "fileBody", "fileType"},
          *                 @OA\Property(property="customerId", type="string", example="2f7433c5-1f7a-4743-a3ba-6489498ec5ca"),
          *                 @OA\Property(property="submissionId", type="string", example="648d9672-2bec-4bea-b4f7-ad0ca9f8bdf0"),
-         *                 @OA\Property(property="fileType", type="string", example="Selfie"),
+         *                 @OA\Property(property="fileType", type="string", example="National ID Front or National ID Back"),
          *                 @OA\Property(property="fileBody", type="string", format="binary")
          *             )
          *         )
@@ -119,13 +119,14 @@ class AlfredController extends Controller
                 $filePath = $request->file('fileBody')->getRealPath();
                 $fileName = $request->file('fileBody')->getClientOriginalName();
 
-                $response = $alfred->uploadKycFile(
-                    $validated['customerId'],
-                    $validated['submissionId'],
-                    $filePath,
-                    $fileName,
-                    $validated['fileType']
-                );
+               $response = $alfred->uploadKycFile(
+                                    $validated['customerId'],
+                                    $validated['submissionId'],
+                                    $filePath,
+                                    $validated['fileType'], // ✅ Aquí debe ir el tipo de archivo
+                                    $fileName               // ✅ Aquí el nombre opcional del archivo
+                                );
+
 
                 return response()->json($response);
             } catch (\Illuminate\Validation\ValidationException $e) {
@@ -198,7 +199,7 @@ class AlfredController extends Controller
      *                 @OA\Property(property="nationalities", type="array", @OA\Items(type="string"), example={"Dominicano"}),
      *                 @OA\Property(property="phoneNumber", type="string", example="8298736708"),
      *                 @OA\Property(property="occupation", type="string", example="developer"),
-     *                 @OA\Property(property="email", type="string", format="email", example="luisdanielcurso@gmail.com")
+     *                 @OA\Property(property="email", type="string", format="email", example="luisdanielcurso@gmail.com"),
      *                 @OA\Property(property="dni", type="string", example="40227520364")
      *             )
      *         )

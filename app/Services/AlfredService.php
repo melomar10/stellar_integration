@@ -27,6 +27,10 @@ class AlfredService
             'api-key'     => config('services.alfred.api_key'),
             'api-secret' => config('services.alfred.api_secret')
         ];
+          $this->headersFile = [
+            'api-key'     => config('services.alfred.api_key'),
+            'api-secret' => config('services.alfred.api_secret')
+        ];
     }
 
     // 1. Crear Customer
@@ -145,23 +149,17 @@ class AlfredService
         );
     }
 
-    // 4. Agregar archivos KYC (ARG & MEX)
-   public function uploadKycFile(string $customerId, string $submissionId, string $filePath, string $fileType, string $fileName = null): array
+    public function uploadKycFile(string $customerId, string $submissionId, string $filePath, string $fileType, string $fileName = null): array
     {
-        return Http::withHeaders($this->headers)
+        return Http::withHeaders($this->headersFile)
             ->asMultipart()
             ->attach('fileBody', fopen($filePath, 'r'), $fileName ?? basename($filePath))
             ->post("{$this->baseUri}/customers/{$customerId}/kyc/{$submissionId}/files", [
-                [
-                    'name' => 'fileType',
-                    'contents' => $fileType,
-                ]
+                'fileType' => $fileType
             ])
             ->throw()
             ->json();
     }
-
-
     // 5. Enviar KYC
     public function submitKyc(string $customerId, string $submissionId): array
     {
