@@ -620,6 +620,132 @@
                 }
             }
         },
+        "/api/alfred/createWebhooks": {
+            "post": {
+                "tags": [
+                    "KYC"
+                ],
+                "summary": "createWebhooks de evento KYC: estados de verificación",
+                "operationId": "createWebhooks",
+                "requestBody": {
+                    "description": "Datos del callback del evento KYC",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "referenceId",
+                                    "eventType",
+                                    "status"
+                                ],
+                                "properties": {
+                                    "referenceId": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "example": "55271e1a-42c5-409a-8551-4cacb8ac4907"
+                                    },
+                                    "eventType": {
+                                        "type": "string",
+                                        "example": "KYC"
+                                    },
+                                    "status": {
+                                        "description": "Estado del KYC",
+                                        "type": "string",
+                                        "enum": [
+                                            "COMPLETED",
+                                            "FAILED",
+                                            "IN_REVIEW",
+                                            "UPDATE_REQUIRED"
+                                        ],
+                                        "example": "FAILED"
+                                    },
+                                    "metadata": {
+                                        "description": "Información adicional según el estado",
+                                        "type": "object",
+                                        "oneOf": [
+                                            {
+                                                "example": {
+                                                    "failureReason": "Documento ilegible"
+                                                }
+                                            },
+                                            {
+                                                "example": {
+                                                    "requiredFields": [
+                                                        "selfie",
+                                                        "addressProof"
+                                                    ]
+                                                }
+                                            }
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Callback procesado correctamente",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "createWebhooks procesado correctamente"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Error de validación",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Los datos enviados no son válidos"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno del servidor",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Error al procesar el callback"
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Detalle del error"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/alfred/payment-method": {
             "post": {
                 "tags": [

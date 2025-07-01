@@ -385,6 +385,107 @@ class AlfredController extends Controller
                 ], 500);
         }
     }
+    /**
+     * @OA\Post(
+     *     path="/api/alfred/createWebhooks",
+     *     summary="createWebhooks de evento KYC: estados de verificación",
+     *     operationId="createWebhooks",
+     *     tags={"KYC"},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         description="Datos del callback del evento KYC",
+     *         @OA\JsonContent(
+     *             required={"referenceId", "eventType", "status"},
+     *             @OA\Property(property="referenceId", type="string", format="uuid", example="55271e1a-42c5-409a-8551-4cacb8ac4907"),
+     *             @OA\Property(property="eventType", type="string", example="KYC"),
+     *             @OA\Property(
+     *                 property="status",
+     *                 type="string",
+     *                 description="Estado del KYC",
+     *                 enum={"COMPLETED", "FAILED", "IN_REVIEW", "UPDATE_REQUIRED"},
+     *                 example="FAILED"
+     *             ),
+     *             @OA\Property(
+     *                 property="metadata",
+     *                 type="object",
+     *                 description="Información adicional según el estado",
+     *                 oneOf={
+     *                     @OA\Schema(example={"failureReason": "Documento ilegible"}),
+     *                     @OA\Schema(example={"requiredFields": {"selfie", "addressProof"}})
+     *                 }
+     *             )
+     *         )
+     *     ),
+    *     @OA\Response(
+    *         response=200,
+    *         description="Callback procesado correctamente",
+    *         @OA\JsonContent(
+    *             @OA\Property(property="message", type="string", example="createWebhooks procesado correctamente"),
+    *             @OA\Property(property="data", type="object")
+    *         )
+    *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Error de validación",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Los datos enviados no son válidos"),
+     *             @OA\Property(property="errors", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Error interno del servidor",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="message", type="string", example="Error al procesar el callback"),
+     *             @OA\Property(property="error", type="string", example="Detalle del error")
+     *         )
+     *     )
+     * )
+     */
+    public function createWebhooks(Request $req, AlfredService $alfred)
+    {
+        try {
+            $data = $req->validate([
+                'referenceId' => 'required|uuid',
+                'eventType'   => 'required|string|in:KYC',
+                'status'      => 'required|string|in:COMPLETED,FAILED,IN_REVIEW,UPDATE_REQUIRED',
+                'metadata'    => 'nullable|array',
+            ]);
+
+            // Validaciones adicionales según estado
+            if ($data['status'] === 'FAILED' && empty($data['metadata']['failureReason'])) {
+                return response()->json([
+                    'message' => 'Se requiere el campo "failureReason" en metadata para el estado FAILED'
+                ], 422);
+            }
+
+            if ($data['status'] === 'UPDATE_REQUIRED' && empty($data['metadata']['requiredFields'])) {
+                return response()->json([
+                    'message' => 'Se requiere el campo "requiredFields" en metadata para el estado UPDATE_REQUIRED'
+                ], 422);
+            }
+
+            // Procesar el evento
+            $return=$alfred->createWebhooks($data);
+
+            return response()->json([
+                'message' => 'createWebhooks procesado correctamente',
+                'data' => $return
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Los datos enviados no son válidos',
+                'errors'  => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al procesar el createWebhooks',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
+    }
 
     public function createOnramp(Request $req, AlfredService $alfred)
     {

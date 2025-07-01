@@ -25,6 +25,7 @@ Route::prefix('bridge')->group(function () {
 });
 Route::prefix('alfred')->group(function () {
     Route::post('customers',                          [AlfredController::class, 'createCustomer']);
+     Route::post('createWebhooks',                    [AlfredController::class, 'createWebhooks']);
     Route::get('kyc-requirements',                    [AlfredController::class, 'kycRequirements']);
     Route::put('kyc/update',                          [AlfredController::class, 'updateKycInfo']);
     Route::get('customers/kyc/{customerId}',          [AlfredController::class, 'getKYCSubmission']);

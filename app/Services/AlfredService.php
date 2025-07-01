@@ -176,6 +176,13 @@ class AlfredService
             ->throw()->json();
     }
 
+    public function createWebhooks(array $payload): array
+    {
+         return Http::withHeaders($this->headers)
+            ->post("{$this->baseUri}/webhooks", $payload)
+            ->throw()->json();
+    }
+
     // 7. Onramp
     public function createOnramp(array $payload): array
     {
