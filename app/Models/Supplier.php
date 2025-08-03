@@ -4,27 +4,16 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Ramsey\Uuid\Uuid;
-class Client extends Model
+
+class Supplier extends Model
 {
     use HasFactory;
-
     protected $fillable = [
         'name',
-        'last_name',
-        'email',
-        'phone',
-        'uuid',
-        'card_number_id',
+        'token',
+        'url',
         'status',
     ];
-
-    public function generateUuid()
-    {
-        $this->uuid = Uuid::uuid4()->toString();
-        $this->save();
-        return $this;
-    }
     public function transfers()
     {
         return $this->hasMany(Tranfer::class);

@@ -27,7 +27,7 @@ class ClientController extends Controller
             $request->merge(['uuid' => Uuid::uuid4()->toString()]);
 
             // Establecer status por defecto como 'active'
-            $request->merge(['status' => 'active']);
+            $request->merge(['status' => true]);
 
             $client = Client::create($request->all());
 

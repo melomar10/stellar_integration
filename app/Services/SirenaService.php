@@ -4,13 +4,15 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use App\Models\Client;
+use App\Models\Supplier;
+use App\Models\Tranfer;
 
 class SirenaService
 {
-    private function getToken()
+    private function getSupplier()
     {
-        $token = config('services.sirena.api_key');
-        return "Bearer $token";
+       $supplier = Supplier::where('name', 'Sirena')->first();
+       return $supplier;
     }
 
     /**
@@ -22,7 +24,7 @@ class SirenaService
     public function getRechargeResume($total)
     {
         try {
-            $response = Http::get('https://us-central1-dbdomicanastas.cloudfunctions.net/app/getRechargeResume', [
+            $response = Http::get( $this->getSupplier()->url . '/app/getRechargeResume', [
                 'total' => $total
             ]);
 
@@ -53,7 +55,7 @@ class SirenaService
     public function getCompaniesByProvince($provinceId)
     {
         try {
-            $response = Http::get("https://us-central1-dbdomicanastas.cloudfunctions.net/app/getCompaniesByProvince/{$provinceId}");
+            $response = Http::get($this->getSupplier()->url . "/app/getCompaniesByProvince/{$provinceId}");
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -167,8 +169,8 @@ class SirenaService
             // 6. Realizar petición al API
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
-                'Authorization' => $this->getToken()
-            ])->post('https://us-central1-dbdomicanastas.cloudfunctions.net/app/requestBonus', $requestData);
+                'Authorization' => 'Bearer ' . $this->getSupplier()->token
+            ])->post($this->getSupplier()->url . '/app/requestBonus', $requestData);
 
             if ($response->successful()) {
                 $responseData = $response->json();
@@ -176,6 +178,14 @@ class SirenaService
                 if ($responseData['ok']) {
                     // Construir transfer_url
                     $transferUrl = "https://domipagosclient.web.app/#/pay_bonus/{$responseData['data']['id']}";
+
+                    $transfer = new Tranfer();
+                    $transfer->client_id = $client->id;
+                    $transfer->supplier_id = $this->getSupplier()->id;
+                    $transfer->amount = $amountUsd;
+                    $transfer->transfer_status = 'pending';
+                    $transfer->note = 'Pago de bono Sirena';
+                    $transfer->save();
                     
                     return [
                         'ok' => true,
