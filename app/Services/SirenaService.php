@@ -9,6 +9,14 @@ use App\Models\Tranfer;
 
 class SirenaService
 {
+    /**
+     * Helper para redondear valores monetarios a 2 decimales
+     */
+    private function roundMoney($value)
+    {
+        return round((float) $value, 2);
+    }
+
     private function getSupplier()
     {
        $supplier = Supplier::where('name', 'Sirena')->first();
@@ -130,11 +138,11 @@ class SirenaService
                 return $baseResponse;
             }
 
-            $convertionRate = $baseResponse['data']['convertion_rate'];
+            $convertionRate = $this->roundMoney($baseResponse['data']['convertion_rate']);
 
             // 2. Convertir monto en pesos a dólares
-            $amountPesos = $params['amount'];
-            $amountUsd = $amountPesos / $convertionRate;
+            $amountPesos = $this->roundMoney($params['amount']);
+            $amountUsd = $this->roundMoney($amountPesos / $convertionRate);
 
             // 3. Obtener invoice_info con el monto convertido
             $invoiceResponse = $this->getRechargeResume($amountUsd);
@@ -143,6 +151,15 @@ class SirenaService
             }
 
             $invoiceInfo = $invoiceResponse['data'];
+
+            // Redondear todos los valores del invoice_info
+            $invoiceInfo['subtotal_usd'] = $this->roundMoney($invoiceInfo['subtotal_usd']);
+            $invoiceInfo['convertion_rate'] = $this->roundMoney($invoiceInfo['convertion_rate']);
+            $invoiceInfo['service_fee_usd'] = $this->roundMoney($invoiceInfo['service_fee_usd']);
+            $invoiceInfo['total_usd'] = $this->roundMoney($invoiceInfo['total_usd']);
+            $invoiceInfo['total_pesos'] = $this->roundMoney($invoiceInfo['total_pesos']);
+            $invoiceInfo['service_fee_pesos'] = $this->roundMoney($invoiceInfo['service_fee_pesos']);
+            $invoiceInfo['subtotal_pesos'] = $this->roundMoney($invoiceInfo['subtotal_pesos']);
 
             // 4. Obtener company_id desde getCompaniesByProvince
             // Por ahora usamos un ID de provincia por defecto, puedes ajustarlo según necesites
@@ -182,7 +199,7 @@ class SirenaService
                     $transfer = new Tranfer();
                     $transfer->client_id = $client->id;
                     $transfer->supplier_id = $this->getSupplier()->id;
-                    $transfer->amount = $amountUsd;
+                    $transfer->amount = $this->roundMoney($amountUsd);
                     $transfer->transfer_status = 'pending';
                     $transfer->note = 'Pago de bono Sirena';
                     $transfer->save();
@@ -195,12 +212,12 @@ class SirenaService
                                 'last_name' => $client->last_name,
                                 'email' => $client->email
                             ],
-                            'amount_pesos' => round($amountPesos, 2),
-                            'amount_usd' => round($amountUsd, 2),
-                            'service_fee_usd' => round($invoiceInfo['service_fee_usd'], 2),
-                            'convertion_rate' => round($convertionRate, 2),
-                            'total_usd' => round($invoiceInfo['total_usd'], 2),
-                            'total_pesos' => round($invoiceInfo['total_pesos'], 2),
+                            'amount_pesos' => $amountPesos,
+                            'amount_usd' => $amountUsd,
+                            'service_fee_usd' => $invoiceInfo['service_fee_usd'],
+                            'convertion_rate' => $convertionRate,
+                            'total_usd' => $invoiceInfo['total_usd'],
+                            'total_pesos' => $invoiceInfo['total_pesos'],
                             'transfer_url' => $transferUrl,
                             'payment_id' => $responseData['data']['id']
                         ]
