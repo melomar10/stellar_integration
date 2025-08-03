@@ -31,11 +31,7 @@ class ClientController extends Controller
 
             $client = Client::create($request->all());
 
-            return response()->json([
-                'ok' => true,
-                'message' => 'Cliente creado exitosamente',
-                'data' => $client
-            ], 201);
+            return response()->json($client);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
