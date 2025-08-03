@@ -39,5 +39,4 @@ return [
         'api_key'  => env('ALFRED_API_KEY'),
         'api_secret' => env('ALFRED_API_SECRET'),
     ],
-
 ];

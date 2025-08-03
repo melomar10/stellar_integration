@@ -4,6 +4,8 @@ use App\Http\Controllers\AlfredController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\BridgeController;
+use App\Http\Controllers\ClientController;
+use App\Http\Controllers\SirenaController;
 
 /*
 |--------------------------------------------------------------------------
@@ -33,4 +35,19 @@ Route::prefix('alfred')->group(function () {
     Route::post('offramp',                            [AlfredController::class, 'createOfframp']);
     Route::post('support',                            [AlfredController::class, 'createSupport']);
     Route::post('customers/country',                  [AlfredController::class, 'createCustomerCountry']);
+});
+
+//enpoints clientes
+Route::prefix('client')->group(function () {
+    Route::post('new', [ClientController::class, 'create']);
+    Route::get('all', [ClientController::class, 'getClients']);
+    Route::get('uuid/{uuid}', [ClientController::class, 'getClientByUuid']);
+    Route::get('{phone}', [ClientController::class, 'getClientbyPhone']);
+});
+
+//Endpoint Sirena 
+Route::prefix('sirena')->group(function () {
+    Route::post('request-bonus', [SirenaController::class, 'requestBonus']);
+   // Route::get('recharge-resume', [SirenaController::class, 'getRechargeResume']);
+  //  Route::get('companies-by-province/{provinceId}', [SirenaController::class, 'getCompaniesByProvince']);
 });
