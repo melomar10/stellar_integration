@@ -14,7 +14,7 @@ class SirenaService
      */
     private function roundMoney($value)
     {
-        return round((float) $value, 2);
+        return number_format((float) $value, 2, '.', '');
     }
 
     private function getSupplier()
@@ -142,7 +142,7 @@ class SirenaService
 
             // 2. Convertir monto en pesos a dólares
             $amountPesos = $this->roundMoney($params['amount']);
-            $amountUsd = $this->roundMoney($amountPesos / $convertionRate);
+            $amountUsd   = $this->roundMoney($amountPesos / $convertionRate);
 
             // 3. Obtener invoice_info con el monto convertido
             $invoiceResponse = $this->getRechargeResume($amountUsd);
