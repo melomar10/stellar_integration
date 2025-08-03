@@ -39,5 +39,9 @@ return [
         'api_key'  => env('ALFRED_API_KEY'),
         'api_secret' => env('ALFRED_API_SECRET'),
     ],
+    'sirena' => [
+        'base_uri' => env('SIRENA_BASE_URI'),
+        'api_key'  => env('SIRENA_API_KEY'),
+    ],
 
 ];
