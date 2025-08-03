@@ -164,7 +164,13 @@ class SirenaService
             // 4. Obtener company_id desde getCompaniesByProvince
             // Por ahora usamos un ID de provincia por defecto, puedes ajustarlo según necesites
             $companiesResponse = $this->getCompaniesByProvince('3w88aXrcoodCn8n2CR2v');
-            $companyId = 'Sirena@domi.com'; // Valor por defecto, ajustar según la respuesta
+            if($params['company'] == 'Sirena Market'){
+                $companyId = 'Super Pola@domi.com'; 
+            }elseif($params['company'] == 'Aprezio'){
+                $companyId = 'Aprezio@domi.com'; 
+            }else{
+                $companyId = 'Sirena@domi.com'; 
+            }
 
             if ($companiesResponse['ok'] && isset($companiesResponse['data']['company_id'])) {
                 $companyId = $companiesResponse['data']['company_id'];
@@ -201,7 +207,7 @@ class SirenaService
                     $transfer->supplier_id = $this->getSupplier()->id;
                     $transfer->amount = $this->roundMoney($amountUsd);
                     $transfer->transfer_status = 'pending';
-                    $transfer->note = 'Pago de bono Sirena';
+                    $transfer->note = 'Pago de bono ' . $params['company'];
                     $transfer->save();
                     
                     return [

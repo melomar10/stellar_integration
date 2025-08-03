@@ -47,13 +47,15 @@ class SirenaController extends Controller
         $request->validate([
             'user_id' => 'required|string',
             'amount' => 'required|numeric|min:0',
-            'note' => 'nullable|string'
+            'note' => 'nullable|string',
+            'company' => 'nullable|string',
         ]);
 
         $params = [
             'user_id' => $request->user_id,
             'amount' => $request->amount,
-            'note' => $request->note ?? ''
+            'note' => $request->note ?? '',
+            'company' => $request->company ?? 'Sirena'
         ];
 
         $result = $this->sirenaService->requestBonus($params);
