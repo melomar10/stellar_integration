@@ -195,12 +195,12 @@ class SirenaService
                                 'last_name' => $client->last_name,
                                 'email' => $client->email
                             ],
-                            'amount_pesos' => round($amountPesos, 2),
-                            'amount_usd' => round($amountUsd, 2),
-                            'service_fee_usd' => round($invoiceInfo['service_fee_usd'], 2),
-                            'convertion_rate' => round($convertionRate, 2),
-                            'total_usd' => round($invoiceInfo['total_usd'], 2),
-                            'total_pesos' => round($invoiceInfo['total_pesos'], 2),
+                            'amount_pesos' => (float) number_format($amountPesos, 2, '.', ''),
+                            'amount_usd' => (float) number_format($amountUsd, 2, '.', ''),
+                            'service_fee_usd' => (float) number_format($invoiceInfo['service_fee_usd'], 2, '.', ''),
+                            'convertion_rate' => (float) number_format($convertionRate, 2, '.', ''),
+                            'total_usd' => (float) number_format($invoiceInfo['total_usd'], 2, '.', ''),
+                            'total_pesos' => (float) number_format($invoiceInfo['total_pesos'], 2, '.', ''),
                             'transfer_url' => $transferUrl,
                             'payment_id' => $responseData['data']['id']
                         ]
