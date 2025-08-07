@@ -87,6 +87,12 @@ class ClientController extends Controller
     public function getClientbyPhone($phone): JsonResponse
     {
         try {
+            $phone = preg_replace('/[^0-9]/', '', $phone);
+            if (substr($phone, 0, 1) !== '1') {
+                $phone = '1' . $phone;
+            }
+            $phone = preg_replace('/[^0-9]/', '', $phone);
+
             $client = Client::where('phone', $phone)->first();
 
             if (!$client) {
