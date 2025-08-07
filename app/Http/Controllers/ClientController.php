@@ -20,7 +20,7 @@ class ClientController extends Controller
                 'last_name' => 'required|string|max:255',
                 'email' => 'nullable|email',
                 'phone' => 'required|string|max:20',
-                'card_number_id' => 'nullable|string|max:255'
+                'card_number_id' => 'nullable|string|max:255'                
             ]);
             // vamos a hacer la misma validacion para el $params['receiver_phone']
             $phone = preg_replace('/[^0-9]/', '', $request->phone);

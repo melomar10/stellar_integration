@@ -148,9 +148,15 @@ class SirenaService
 
             $convertionRate = $this->roundMoney($baseResponse['data']['convertion_rate']);
 
-            // 2. Convertir monto en pesos a dólares
-            $amountPesos = $this->roundMoney($params['amount']);
-            $amountUsd   = $this->roundMoney($amountPesos / $convertionRate);
+            //si el type es = a Envio el monto es en dolares por lo tanto no se convierte a pesos
+            if($params['type'] == 'Envio'){
+                $amountPesos = $this->roundMoney($params['amount']);
+                $amountUsd = $this->roundMoney($params['amount']);
+            }else{
+                // 2. Convertir monto en pesos a dólares
+                $amountPesos = $this->roundMoney($params['amount']);
+                $amountUsd   = $this->roundMoney($amountPesos / $convertionRate);
+            }
 
             // 3. Obtener invoice_info con el monto convertido
             $invoiceResponse = $this->getRechargeResume($amountUsd);
@@ -160,6 +166,7 @@ class SirenaService
 
             $invoiceInfo = $invoiceResponse['data'];
 
+           return response()->json($invoiceInfo);
             // Redondear todos los valores del invoice_info
             $invoiceInfo['subtotal_usd'] = $this->roundMoney($invoiceInfo['subtotal_usd']);
             $invoiceInfo['convertion_rate'] = $this->roundMoney($invoiceInfo['convertion_rate']);
