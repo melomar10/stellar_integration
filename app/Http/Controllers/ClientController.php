@@ -29,6 +29,12 @@ class ClientController extends Controller
             }
             $phone = preg_replace('/[^0-9]/', '', $phone);
 
+            //valida si el cliente existe con el mismo phone y retorna el cliente
+            $client = Client::where('phone', $phone)->first();
+            if ($client) {
+                return response()->json($client);
+            }
+
             // Generar UUID automáticamente
             $request->merge(['uuid' => Uuid::uuid4()->toString()]);
 
