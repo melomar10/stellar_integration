@@ -166,7 +166,6 @@ class SirenaService
 
             $invoiceInfo = $invoiceResponse['data'];
 
-           return response()->json($invoiceInfo);
             // Redondear todos los valores del invoice_info
             $invoiceInfo['subtotal_usd'] = $this->roundMoney($invoiceInfo['subtotal_usd']);
             $invoiceInfo['convertion_rate'] = $this->roundMoney($invoiceInfo['convertion_rate']);
