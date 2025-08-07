@@ -39,4 +39,8 @@ return [
         'api_key'  => env('ALFRED_API_KEY'),
         'api_secret' => env('ALFRED_API_SECRET'),
     ],
+    'shortio' => [
+        'api_key' => env('SHORTIO_API_KEY', 'sk_OHtFayXvRmQdzwS5'),
+        'domain' => env('SHORTIO_DOMAIN', 'example.xyz'),
+    ],
 ];

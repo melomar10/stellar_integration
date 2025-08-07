@@ -6,9 +6,17 @@ use Illuminate\Support\Facades\Http;
 use App\Models\Client;
 use App\Models\Supplier;
 use App\Models\Tranfer;
+use App\Services\ShortLinkService;
 
 class SirenaService
 {
+    private $shortLinkService;
+
+    public function __construct()
+    {
+        $this->shortLinkService = new ShortLinkService();
+    }
+
     /**
      * Helper para redondear valores monetarios a 2 decimales
      */
@@ -195,12 +203,26 @@ class SirenaService
                 'Authorization' => 'Bearer ' . $this->getSupplier()->token
             ])->post($this->getSupplier()->url . '/app/requestBonus', $requestData);
 
+            $senderPhone = $params['phone_sender'];
+
             if ($response->successful()) {
                 $responseData = $response->json();
                 
                 if ($responseData['ok']) {
-                    // Construir transfer_url
-                    $transferUrl = "https://domipagosclient.web.app/#/pay_bonus/{$responseData['data']['id']}";
+                    // Construir transfer_url original
+                    $originalTransferUrl = "https://domipagosclient.web.app/#/pay_bonus/{$responseData['data']['id']}";
+
+                    $whatsAppUrl = "https://wa.me/{$senderPhone}?text=%C2%A1{$params['sender_name']}%20te%20ha%20solicitado%20{$invoiceInfo['total_pesos']}%20pesos%20Dominicanos%20para%20utilizar%20en%20Sirena.%20Accede%20a%20este%20link%20para%20someter%20el%20pago.%20%F0%9F%91%87%EF%B8%8F%0A%0A{$originalTransferUrl}";
+                    
+                    // Acortar el transfer_url usando Short.io
+                    $shortLinkResponse = $this->shortLinkService->createShortLink(
+                        $whatsAppUrl
+                    );
+                    
+                    // Usar el enlace corto si se creó exitosamente, sino usar el original
+                    $transferUrl = $shortLinkResponse['ok'] 
+                        ? $shortLinkResponse['data']['short_url'] 
+                        : $whatsAppUrl;
 
                     $transfer = new Tranfer();
                     $transfer->client_id = $client->id;
@@ -225,6 +247,8 @@ class SirenaService
                             'total_usd' => $invoiceInfo['total_usd'],
                             'total_pesos' => $invoiceInfo['total_pesos'],
                             'transfer_url' => $transferUrl,
+                            'original_transfer_url' => $originalTransferUrl,
+                        //    'short_link_info' => $shortLinkResponse['ok'] ? $shortLinkResponse['data'] : null,
                             'payment_id' => $responseData['data']['id']
                         ]
                     ];

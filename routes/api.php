@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\BridgeController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\SirenaController;
+use App\Http\Controllers\ShortLinkController;
 
 /*
 |--------------------------------------------------------------------------
@@ -50,4 +51,12 @@ Route::prefix('sirena')->group(function () {
     Route::post('request-bonus', [SirenaController::class, 'requestBonus']);
    // Route::get('recharge-resume', [SirenaController::class, 'getRechargeResume']);
   //  Route::get('companies-by-province/{provinceId}', [SirenaController::class, 'getCompaniesByProvince']);
+});
+
+//Endpoint Short.io
+Route::prefix('shortlink')->group(function () {
+    Route::post('create', [ShortLinkController::class, 'createShortLink']);
+    Route::get('info/{linkId}', [ShortLinkController::class, 'getShortLinkInfo']);
+    Route::put('update/{linkId}', [ShortLinkController::class, 'updateShortLink']);
+    Route::delete('delete/{linkId}', [ShortLinkController::class, 'deleteShortLink']);
 });

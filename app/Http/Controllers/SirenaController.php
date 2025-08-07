@@ -49,13 +49,17 @@ class SirenaController extends Controller
             'amount' => 'required|numeric|min:0',
             'note' => 'nullable|string',
             'company' => 'nullable|string',
+            'phone_sender' => 'nullable|string',
+            'sender_name' => 'nullable|string',
         ]);
 
         $params = [
             'user_id' => $request->user_id,
             'amount' => $request->amount,
             'note' => $request->note ?? '',
-            'company' => $request->company ?? 'Sirena'
+            'company' => $request->company ?? 'Sirena',
+            'phone_sender' => $request->phone_sender ?? '',
+            'sender_name' => $request->sender_name ?? ''
         ];
 
         $result = $this->sirenaService->requestBonus($params);
