@@ -221,16 +221,25 @@ class SirenaService
                 $responseData = $response->json();
                 
                 if ($responseData['ok']) {
-                    // Construir transfer_url original
-                    $originalTransferUrl = "https%3A%2F%2Fdomipagosclient.web.app%2F%23%2Fpay_bonus/{$responseData['data']['id']}";
+                    if($params['type'] == 'Envio'){
+                        $originalTransferUrl = "https://domipagosclient.web.app/#/pay_bonus/{$responseData['data']['id']}";
+                    }else{
+                        $originalTransferUrl = "https%3A%2F%2Fdomipagosclient.web.app%2F%23%2Fpay_bonus/{$responseData['data']['id']}";
+                    }
 
                     
                     $whatsAppUrl = "https://wa.me/{$senderPhone}?text=%C2%A1{$client->name}%20{$client->last_name}%20te%20ha%20solicitado%20{$invoiceInfo['total_pesos']}%20pesos%20Dominicanos%20para%20utilizar%20en%20Sirena.%20Accede%20a%20este%20link%20para%20someter%20el%20pago.%20%0A%0A{$originalTransferUrl}";
                     
                     // Acortar el transfer_url usando Short.io
-                    $shortLinkResponse = $this->shortLinkService->createShortLink(
-                        $whatsAppUrl
-                    );
+                    if($params['type'] == 'Envio'){
+                        $shortLinkResponse = $this->shortLinkService->createShortLink(
+                            $originalTransferUrl
+                        );
+                    }else{
+                        $shortLinkResponse = $this->shortLinkService->createShortLink(
+                            $whatsAppUrl
+                        );
+                    }
                     
                     // Usar el enlace corto si se creó exitosamente, sino usar el original
                     $transferUrl = $shortLinkResponse['ok'] 
