@@ -18,7 +18,7 @@ class ClientController extends Controller
             $request->validate([
                 'name' => 'required|string|max:255',
                 'last_name' => 'required|string|max:255',
-                'email' => 'nullable|email|unique:clients,email',
+                'email' => 'nullable|email',
                 'phone' => 'required|string|max:20',
                 'card_number_id' => 'nullable|string|max:255'
             ]);
@@ -28,13 +28,14 @@ class ClientController extends Controller
                 $phone = '1' . $phone;
             }
             $phone = preg_replace('/[^0-9]/', '', $phone);
-
+            
             //valida si el cliente existe con el mismo phone y retorna el cliente
             $client = Client::where('phone', $phone)->first();
+            
             if ($client) {
                 return response()->json($client);
             }
-
+            
             // Generar UUID automáticamente
             $request->merge(['uuid' => Uuid::uuid4()->toString()]);
 
