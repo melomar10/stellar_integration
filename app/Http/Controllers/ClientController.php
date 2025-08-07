@@ -22,6 +22,12 @@ class ClientController extends Controller
                 'phone' => 'required|string|max:20',
                 'card_number_id' => 'nullable|string|max:255'
             ]);
+            // vamos a hacer la misma validacion para el $params['receiver_phone']
+            $phone = preg_replace('/[^0-9]/', '', $request->phone);
+            if (substr($phone, 0, 1) !== '1') {
+                $phone = '1' . $phone;
+            }
+            $phone = preg_replace('/[^0-9]/', '', $phone);
 
             // Generar UUID automáticamente
             $request->merge(['uuid' => Uuid::uuid4()->toString()]);
@@ -30,6 +36,8 @@ class ClientController extends Controller
             $request->merge(['status' => true]);
 
             $client = Client::create($request->all());
+            $client->phone = $phone;
+            $client->save();
 
             return response()->json($client);
 

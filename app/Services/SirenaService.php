@@ -203,7 +203,13 @@ class SirenaService
                 'Authorization' => 'Bearer ' . $this->getSupplier()->token
             ])->post($this->getSupplier()->url . '/app/requestBonus', $requestData);
 
-            $senderPhone = $params['phone_sender'];
+            //valida si el $params['phone_sender' tiene un 1 delante y si no lo tiene lo agrega, tambien quita todos los espacios en blanco y caracteres que no sean numericos
+            $senderPhone = preg_replace('/[^0-9]/', '', $params['phone_sender']);
+            if (substr($senderPhone, 0, 1) !== '1') {
+                $senderPhone = '1' . $senderPhone;
+            }
+            $senderPhone = preg_replace('/[^0-9]/', '', $senderPhone);
+        
 
             if ($response->successful()) {
                 $responseData = $response->json();
