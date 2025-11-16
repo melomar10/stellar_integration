@@ -96,6 +96,122 @@
     </div>
 </div>
 
+<!-- Modal de Edición de Cliente -->
+<div id="editClientModal" style="display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center;">
+    <div style="background-color: white; border-radius: 12px; padding: 0; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); position: relative;">
+        <div style="padding: 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: white; z-index: 10;">
+            <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600; color: var(--text-primary);">Editar Cliente</h2>
+            <button onclick="closeEditClientModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary); padding: 0.25rem 0.5rem; border-radius: 6px; transition: all 0.2s ease;" onmouseover="this.style.background='var(--light-gray)'; this.style.color='var(--text-primary)'" onmouseout="this.style.background='none'; this.style.color='var(--text-secondary)'">&times;</button>
+        </div>
+        <div style="padding: 1.5rem;">
+            <div id="editClientModalLoading" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                <p>Cargando datos del cliente...</p>
+            </div>
+            <div id="editClientModalError" style="display: none; background: #fee; border: 1px solid #fcc; color: #c33; padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem;"></div>
+            <form id="editClientForm" style="display: none;">
+                <div style="margin-bottom: 1.5rem;">
+                    <label for="edit_name" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-primary);">Nombre</label>
+                    <input 
+                        type="text" 
+                        id="edit_name" 
+                        name="name" 
+                        required
+                        style="width: 100%; padding: 0.75rem; border: 2px solid var(--border-color); border-radius: 8px; font-size: 1rem; transition: all 0.3s ease;"
+                        onfocus="this.style.borderColor='var(--primary-color)'; this.style.boxShadow='0 0 0 3px rgba(57, 183, 127, 0.1)'"
+                        onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'"
+                    >
+                    <span id="edit_name_error" style="color: #c33; font-size: 0.85rem; margin-top: 0.25rem; display: none;"></span>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label for="edit_last_name" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-primary);">Apellido</label>
+                    <input 
+                        type="text" 
+                        id="edit_last_name" 
+                        name="last_name" 
+                        required
+                        style="width: 100%; padding: 0.75rem; border: 2px solid var(--border-color); border-radius: 8px; font-size: 1rem; transition: all 0.3s ease;"
+                        onfocus="this.style.borderColor='var(--primary-color)'; this.style.boxShadow='0 0 0 3px rgba(57, 183, 127, 0.1)'"
+                        onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'"
+                    >
+                    <span id="edit_last_name_error" style="color: #c33; font-size: 0.85rem; margin-top: 0.25rem; display: none;"></span>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label for="edit_email" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-primary);">Correo Electrónico</label>
+                    <input 
+                        type="email" 
+                        id="edit_email" 
+                        name="email" 
+                        style="width: 100%; padding: 0.75rem; border: 2px solid var(--border-color); border-radius: 8px; font-size: 1rem; transition: all 0.3s ease;"
+                        onfocus="this.style.borderColor='var(--primary-color)'; this.style.boxShadow='0 0 0 3px rgba(57, 183, 127, 0.1)'"
+                        onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'"
+                    >
+                    <span id="edit_email_error" style="color: #c33; font-size: 0.85rem; margin-top: 0.25rem; display: none;"></span>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label for="edit_phone" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-primary);">Teléfono</label>
+                    <input 
+                        type="text" 
+                        id="edit_phone" 
+                        name="phone" 
+                        required
+                        style="width: 100%; padding: 0.75rem; border: 2px solid var(--border-color); border-radius: 8px; font-size: 1rem; transition: all 0.3s ease;"
+                        onfocus="this.style.borderColor='var(--primary-color)'; this.style.boxShadow='0 0 0 3px rgba(57, 183, 127, 0.1)'"
+                        onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'"
+                    >
+                    <span id="edit_phone_error" style="color: #c33; font-size: 0.85rem; margin-top: 0.25rem; display: none;"></span>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label for="edit_card_number_id" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-primary);">Cédula/Tarjeta de Identidad</label>
+                    <input 
+                        type="text" 
+                        id="edit_card_number_id" 
+                        name="card_number_id" 
+                        style="width: 100%; padding: 0.75rem; border: 2px solid var(--border-color); border-radius: 8px; font-size: 1rem; transition: all 0.3s ease;"
+                        onfocus="this.style.borderColor='var(--primary-color)'; this.style.boxShadow='0 0 0 3px rgba(57, 183, 127, 0.1)'"
+                        onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'"
+                    >
+                    <span id="edit_card_number_id_error" style="color: #c33; font-size: 0.85rem; margin-top: 0.25rem; display: none;"></span>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input 
+                            type="checkbox" 
+                            id="edit_status" 
+                            name="status" 
+                            value="1"
+                            style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary-color);"
+                        >
+                        <span style="font-weight: 600; color: var(--text-primary);">Cliente Activo</span>
+                    </label>
+                </div>
+
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button 
+                        type="submit" 
+                        style="background: var(--primary-color); color: white; padding: 0.75rem 2rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; flex: 1;"
+                        onmouseover="this.style.background='var(--primary-dark)'; this.style.transform='translateY(-1px)'"
+                        onmouseout="this.style.background='var(--primary-color)'; this.style.transform='translateY(0)'"
+                    >
+                        Guardar Cambios
+                    </button>
+                    <button 
+                        type="button" 
+                        onclick="closeEditClientModal()"
+                        style="background: var(--light-gray); color: var(--text-primary); padding: 0.75rem 2rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease;"
+                    >
+                        Cancelar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @push('styles')
 <style>
 .timeline-container {
@@ -438,9 +554,7 @@
         // Hacer funciones globales para los botones
         window.loadClients = loadClients;
         window.editClient = function(clientId) {
-            // TODO: Implementar edición de cliente
-            alert('Editar cliente ID: ' + clientId);
-            console.log('Editar cliente:', clientId);
+            window.openEditClientModal(clientId);
         };
         window.viewFlow = function(clientId) {
             openFlowModal(clientId);
@@ -656,19 +770,181 @@
             document.getElementById('flowModal').style.display = 'none';
         };
 
+        // Variables para el modal de edición
+        window.currentEditClientId = null;
+
+        // Función para abrir el modal de edición (hacerla global)
+        window.openEditClientModal = function(clientId) {
+            window.currentEditClientId = clientId;
+            const modal = document.getElementById('editClientModal');
+            const modalLoading = document.getElementById('editClientModalLoading');
+            const modalError = document.getElementById('editClientModalError');
+            const modalForm = document.getElementById('editClientForm');
+
+            modal.style.display = 'flex';
+            modalLoading.style.display = 'block';
+            modalError.style.display = 'none';
+            modalForm.style.display = 'none';
+
+            // Limpiar errores anteriores
+            document.querySelectorAll('[id^="edit_"][id$="_error"]').forEach(el => {
+                el.style.display = 'none';
+                el.textContent = '';
+            });
+
+            // Cargar datos del cliente
+            fetch(`/api/client/${clientId}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                modalLoading.style.display = 'none';
+
+                if (data.ok === false || !data.data) {
+                    modalError.style.display = 'block';
+                    modalError.textContent = data.message || 'Error al cargar los datos del cliente';
+                    return;
+                }
+
+                const client = data.data;
+
+                // Llenar el formulario
+                document.getElementById('edit_name').value = client.name || '';
+                document.getElementById('edit_last_name').value = client.last_name || '';
+                document.getElementById('edit_email').value = client.email || '';
+                document.getElementById('edit_phone').value = client.phone || '';
+                document.getElementById('edit_card_number_id').value = client.card_number_id || '';
+                document.getElementById('edit_status').checked = client.status === true || client.status === 1;
+
+                modalForm.style.display = 'block';
+            })
+            .catch(error => {
+                modalLoading.style.display = 'none';
+                modalError.style.display = 'block';
+                modalError.textContent = 'Error al cargar los datos del cliente: ' + error.message;
+                console.error('Error:', error);
+            });
+        }
+
+        // Función para cerrar el modal de edición
+        window.closeEditClientModal = function() {
+            document.getElementById('editClientModal').style.display = 'none';
+            window.currentEditClientId = null;
+        };
+
+        // Función para guardar los cambios del cliente
+        window.saveClientChanges = function() {
+            if (!window.currentEditClientId) {
+                return;
+            }
+
+            const modalError = document.getElementById('editClientModalError');
+            const submitBtn = document.querySelector('#editClientForm button[type="submit"]');
+            const originalText = submitBtn.textContent;
+
+            // Limpiar errores anteriores
+            modalError.style.display = 'none';
+            document.querySelectorAll('[id^="edit_"][id$="_error"]').forEach(el => {
+                el.style.display = 'none';
+                el.textContent = '';
+            });
+
+            // Deshabilitar botón y mostrar loading
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Guardando...';
+
+            const formData = {
+                name: document.getElementById('edit_name').value,
+                last_name: document.getElementById('edit_last_name').value,
+                email: document.getElementById('edit_email').value,
+                phone: document.getElementById('edit_phone').value,
+                card_number_id: document.getElementById('edit_card_number_id').value,
+                status: document.getElementById('edit_status').checked ? 1 : 0
+            };
+
+            fetch(`/api/client/${window.currentEditClientId}`, {
+                method: 'PUT',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+
+                if (data.ok === false) {
+                    // Mostrar errores de validación
+                    if (data.errors) {
+                        Object.keys(data.errors).forEach(field => {
+                            const errorElement = document.getElementById(`edit_${field}_error`);
+                            if (errorElement) {
+                                errorElement.textContent = data.errors[field][0];
+                                errorElement.style.display = 'block';
+                            }
+                        });
+                    } else {
+                        modalError.style.display = 'block';
+                        modalError.textContent = data.message || 'Error al actualizar el cliente';
+                    }
+                    return;
+                }
+
+                // Éxito: cerrar modal y recargar la tabla
+                closeEditClientModal();
+                loadClients(currentPage, currentSearch);
+                
+                // Mostrar mensaje de éxito (opcional)
+                const successMsg = document.createElement('div');
+                successMsg.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #39B77F; color: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10001;';
+                successMsg.textContent = 'Cliente actualizado exitosamente';
+                document.body.appendChild(successMsg);
+                setTimeout(() => {
+                    successMsg.remove();
+                }, 3000);
+            })
+            .catch(error => {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+                modalError.style.display = 'block';
+                modalError.textContent = 'Error al actualizar el cliente: ' + error.message;
+                console.error('Error:', error);
+            });
+        }
+
+        // Registrar el evento del formulario de edición
+        const editForm = document.getElementById('editClientForm');
+        if (editForm) {
+            editForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                window.saveClientChanges();
+            });
+        }
+
+        // Cerrar modal de edición al hacer clic fuera
+        const existingOnClick = window.onclick;
+        window.onclick = function(event) {
+            // Ejecutar el handler existente si existe
+            if (existingOnClick) {
+                existingOnClick(event);
+            }
+            
+            const editModal = document.getElementById('editClientModal');
+            if (event.target === editModal) {
+                window.closeEditClientModal();
+            }
+        };
+
         // Cargar clientes al iniciar
         loadClients(1, '');
-
-        // Hacer funciones globales para los botones
-        window.loadClients = loadClients;
-        window.editClient = function(clientId) {
-            // TODO: Implementar edición de cliente
-            alert('Editar cliente ID: ' + clientId);
-            console.log('Editar cliente:', clientId);
-        };
-        window.viewFlow = function(clientId) {
-            openFlowModal(clientId);
-        };
     }
 })();
 </script>

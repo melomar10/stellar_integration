@@ -164,4 +164,93 @@ class ClientController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Obtener cliente por ID
+     */
+    public function getClientById($id): JsonResponse
+    {
+        try {
+            $client = Client::find($id);
+
+            if (!$client) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Cliente no encontrado',
+                    'data' => null
+                ], 404);
+            }
+
+            return response()->json([
+                'ok' => true,
+                'data' => $client
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Error al buscar el cliente: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Actualizar un cliente
+     */
+    public function update(Request $request, $id): JsonResponse
+    {
+        try {
+            $request->validate([
+                'name' => 'required|string|max:255',
+                'last_name' => 'required|string|max:255',
+                'email' => 'nullable|email',
+                'phone' => 'required|string|max:20',
+                'card_number_id' => 'nullable|string|max:255',
+                'status' => 'nullable|boolean'
+            ]);
+
+            $client = Client::find($id);
+
+            if (!$client) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Cliente no encontrado'
+                ], 404);
+            }
+
+            // Normalizar teléfono
+            $phone = preg_replace('/[^0-9]/', '', $request->phone);
+            if (substr($phone, 0, 1) !== '1') {
+                $phone = '1' . $phone;
+            }
+            $phone = preg_replace('/[^0-9]/', '', $phone);
+
+            $client->name = $request->name;
+            $client->last_name = $request->last_name;
+            $client->email = $request->email;
+            $client->phone = $phone;
+            $client->card_number_id = $request->card_number_id;
+            $client->status = $request->has('status') ? (bool)$request->status : $client->status;
+            $client->save();
+
+            return response()->json([
+                'ok' => true,
+                'message' => 'Cliente actualizado exitosamente',
+                'data' => $client
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Error de validación',
+                'errors' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Error al actualizar el cliente: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

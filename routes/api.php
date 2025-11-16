@@ -43,7 +43,9 @@ Route::prefix('client')->group(function () {
     Route::post('new', [ClientController::class, 'create']);
     Route::get('all', [ClientController::class, 'getClients']);
     Route::get('uuid/{uuid}', [ClientController::class, 'getClientByUuid']);
-    Route::get('{phone}', [ClientController::class, 'getClientbyPhone']);
+    Route::get('phone/{phone}', [ClientController::class, 'getClientbyPhone']);
+    Route::get('{id}', [ClientController::class, 'getClientById']);
+    Route::put('{id}', [ClientController::class, 'update']);
 });
 
 //Endpoint Sirena 
