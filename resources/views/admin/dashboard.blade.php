@@ -13,7 +13,7 @@
                 </svg>
             </div>
             <div class="stat-content">
-                <h3 class="stat-value">1,234</h3>
+                <h3 class="stat-value">{{ number_format($totalClients ?? 0) }}</h3>
                 <p class="stat-label">Total Clientes</p>
             </div>
         </div>

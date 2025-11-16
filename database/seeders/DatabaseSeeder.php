@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
           ClientSeeder::class,
           SupplierSeeder::class,
           UserSeeder::class,
+          StepByFlowSeeder::class,
         ]);
     }
 }

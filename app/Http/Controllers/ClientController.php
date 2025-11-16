@@ -64,14 +64,37 @@ class ClientController extends Controller
     }   
 
     /**
-     * Obtener todos los clientes
+     * Obtener todos los clientes con paginación y filtros
      */
-    public function getClients(): JsonResponse
+    public function getClients(Request $request): JsonResponse
     {
         try {
-            $clients = Client::all();
+            $query = Client::query();
 
-            return response()->json($clients);
+            // Filtro por nombre
+            if ($request->has('search') && !empty($request->search)) {
+                $search = $request->search;
+                $query->where(function($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('last_name', 'like', "%{$search}%")
+                      ->orWhere('phone', 'like', "%{$search}%");
+                });
+            }
+
+            // Paginación
+            $perPage = $request->get('per_page', 15);
+            $clients = $query->orderBy('created_at', 'desc')->paginate($perPage);
+
+            return response()->json([
+                'ok' => true,
+                'data' => $clients->items(),
+                'current_page' => $clients->currentPage(),
+                'last_page' => $clients->lastPage(),
+                'per_page' => $clients->perPage(),
+                'total' => $clients->total(),
+                'from' => $clients->firstItem(),
+                'to' => $clients->lastItem(),
+            ]);
 
         } catch (\Exception $e) {
             return response()->json([

@@ -30,7 +30,7 @@
                     </svg>
                 </button>
                 <div class="user-dropdown" id="userDropdown">
-                    <a href="#" class="dropdown-item">Mi Perfil</a>
+                    <a href="{{ route('admin.profile') }}" class="dropdown-item">Mi Perfil</a>
                     <a href="{{ route('admin.settings') }}" class="dropdown-item">Configuración</a>
                     <div class="dropdown-divider"></div>
                     <form method="POST" action="{{ route('logout') }}" style="margin: 0;">
