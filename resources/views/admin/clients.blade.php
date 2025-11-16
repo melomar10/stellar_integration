@@ -48,12 +48,13 @@
                             <th style="padding: 1rem; text-align: left; font-weight: 600; color: var(--text-primary);">Email</th>
                             <th style="padding: 1rem; text-align: left; font-weight: 600; color: var(--text-primary);">Teléfono</th>
                             <th style="padding: 1rem; text-align: left; font-weight: 600; color: var(--text-primary);">Estado</th>
+                            <th style="padding: 1rem; text-align: left; font-weight: 600; color: var(--text-primary);">Tiene Cuenta</th>
                             <th style="padding: 1rem; text-align: center; font-weight: 600; color: var(--text-primary);">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="clientsTableBody">
                         <tr>
-                            <td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-secondary);">
+                            <td colspan="8" style="padding: 2rem; text-align: center; color: var(--text-secondary);">
                                 Cargando clientes...
                             </td>
                         </tr>
@@ -356,7 +357,7 @@
             
             loadingIndicator.style.display = 'block';
             errorMessage.style.display = 'none';
-            clientsTableBody.innerHTML = '<tr><td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-secondary);">Cargando...</td></tr>';
+            clientsTableBody.innerHTML = '<tr><td colspan="8" style="padding: 2rem; text-align: center; color: var(--text-secondary);">Cargando...</td></tr>';
 
             const params = new URLSearchParams({
                 page: page,
@@ -405,7 +406,7 @@
                     renderClients(clients);
                     renderPagination(paginationData);
                 } else {
-                    clientsTableBody.innerHTML = '<tr><td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-secondary);">No se encontraron clientes</td></tr>';
+                    clientsTableBody.innerHTML = '<tr><td colspan="8" style="padding: 2rem; text-align: center; color: var(--text-secondary);">No se encontraron clientes</td></tr>';
                     paginationContainer.innerHTML = '';
                 }
             })
@@ -423,6 +424,10 @@
                 ? '<span style="background: #39B77F; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 600;">Activo</span>'
                 : '<span style="background: #e53e3e; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 600;">Inactivo</span>';
 
+                const hasAccountBadge = client.has_account 
+                ? '<span style="background: #39B77F; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 600;">Sí</span>'
+                : '<span style="background: #9ca3af; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 600;">No</span>';
+
             return `
                 <tr style="border-bottom: 1px solid var(--border-color);">
                     <td style="padding: 1rem; color: var(--text-secondary);">${client.id || '-'}</td>
@@ -431,6 +436,7 @@
                     <td style="padding: 1rem; color: var(--text-secondary);">${client.email || '-'}</td>
                     <td style="padding: 1rem; color: var(--text-secondary);">${client.phone || '-'}</td>
                     <td style="padding: 1rem;">${statusBadge}</td>
+                    <td style="padding: 1rem;">${hasAccountBadge}</td>
                     <td style="padding: 1rem; text-align: center;">
                         <div style="display: flex; gap: 0.5rem; justify-content: center;">
                             <button 
@@ -534,7 +540,7 @@
         function showError(message) {
             errorMessage.textContent = message;
             errorMessage.style.display = 'block';
-            clientsTableBody.innerHTML = '<tr><td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-secondary);">Error al cargar los clientes</td></tr>';
+            clientsTableBody.innerHTML = '<tr><td colspan="8" style="padding: 2rem; text-align: center; color: var(--text-secondary);">Error al cargar los clientes</td></tr>';
         }
 
         // Función para buscar

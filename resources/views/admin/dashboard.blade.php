@@ -18,7 +18,7 @@
             </div>
         </div>
 
-        <div class="stat-card">
+      <!--  <div class="stat-card">
             <div class="stat-icon" style="background: rgba(57, 183, 127, 0.1);">
                 <svg fill="none" stroke="#39B77F" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
@@ -28,7 +28,7 @@
                 <h3 class="stat-value">567</h3>
                 <p class="stat-label">Flujos Activos</p>
             </div>
-        </div>
+        </div> -->
 
         <div class="stat-card">
             <div class="stat-icon" style="background: rgba(57, 183, 127, 0.1);">

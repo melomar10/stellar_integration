@@ -17,6 +17,8 @@ class Client extends Model
         'phone',
         'uuid',
         'card_number_id',
+        'has_account',
+        'country',
         'status',
     ];
 

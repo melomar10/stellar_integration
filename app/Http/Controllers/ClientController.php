@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Client;
+use App\Services\DomiPagoService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Ramsey\Uuid\Uuid;
@@ -17,7 +18,7 @@ class ClientController extends Controller
         try {
             $request->validate([
                 'name' => 'required|string|max:255',
-                'last_name' => 'required|string|max:255',
+                'last_name' => 'nullable|string|max:255',
                 'email' => 'nullable|email',
                 'phone' => 'required|string|max:20',
                 'card_number_id' => 'nullable|string|max:255'                
@@ -42,6 +43,9 @@ class ClientController extends Controller
             // Establecer status por defecto como 'active'
             $request->merge(['status' => true]);
 
+            $request->merge(['has_account' => false]);
+            $request->merge(['country' => 'DO']);
+            
             $client = Client::create($request->all());
             $client->phone = $phone;
             $client->save();
@@ -106,24 +110,53 @@ class ClientController extends Controller
 
     /**
      * Obtener cliente por teléfono
+     * Si no existe en la BD local, consulta el servicio externo de DomiPago
      */
     public function getClientbyPhone($phone): JsonResponse
     {
         try {
+            // Normalizar teléfono
             $phone = preg_replace('/[^0-9]/', '', $phone);
             if (substr($phone, 0, 1) !== '1') {
                 $phone = '1' . $phone;
             }
             $phone = preg_replace('/[^0-9]/', '', $phone);
 
-            $client = Client::where('phone', $phone)->first();
+            // Buscar cliente en la BD local
+            $client = Client::where('phone', $phone)->where('has_account', true)->first();
 
-            if (!$client) {
+            if ($client) {
+                return response()->json($client);
+            }
+
+            // Si no existe en la BD local, consultar el servicio externo
+            $domiPagoService = new DomiPagoService();
+            $apiResponse = $domiPagoService->getReceiverHasAccount($phone);
+
+            // Verificar si el servicio tiene el cliente registrado
+            if (!$apiResponse['ok'] || !$apiResponse['hasAccount']) {
                 return response()->json([
                     'ok' => false,
                     'message' => 'Cliente no encontrado',
                     'data' => null
                 ], 404);
+            }
+
+            //valida si el cliente existe sin has_account y si es asi actualiza el cliente con los datos del servicio externo
+            
+            // El cliente existe en el servicio externo, crear en la BD local
+            $clientData = $domiPagoService->extractClientData($apiResponse, $phone);
+            
+            // Generar UUID automáticamente
+            $clientData['uuid'] = Uuid::uuid4()->toString();
+            
+            $client = Client::where('phone', $phone)->where('has_account', false)->first();
+            if ($client) {
+                $client->update($clientData);
+                return response()->json($client);
+            }else{
+            // Crear el cliente
+            $client = Client::create($clientData);
             }
 
             return response()->json($client);
