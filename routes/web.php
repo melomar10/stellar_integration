@@ -19,11 +19,18 @@ Route::get('/admin', function () {
     return view('admin.dashboard');
 })->name('admin.dashboard');
 
+Route::get('/admin/clients', function () {
+    return view('admin.clients');
+})->name('admin.clients');
 
-// routes/web.php
-// Route::get('/crear-customer', function () {
-//     return view('kyc.create-customer');
-// })->name('bridge.customers.form');
+Route::get('/admin/flows', function () {
+    return view('admin.flows');
+})->name('admin.flows');
 
-// Route::post('/crear-customer', [BridgeController::class, 'createCustomer'])
-//     ->name('bridge.customers.create');
+Route::get('/admin/transfers', function () {
+    return view('admin.transfers');
+})->name('admin.transfers');
+
+Route::get('/admin/settings', function () {
+    return view('admin.settings');
+})->name('admin.settings');
