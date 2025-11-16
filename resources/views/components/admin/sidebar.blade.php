@@ -1,6 +1,6 @@
 <aside class="admin-sidebar" id="adminSidebar">
     <div class="sidebar-header">
-        <h2 class="sidebar-logo">Admin Panel</h2>
+        <h2 class="sidebar-logo">DomiPago</h2>
         <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
             <span></span>
             <span></span>
@@ -46,6 +46,19 @@
                 </a>
             </li>
             
+            @auth
+                @if(auth()->user()->isAdmin())
+                    <li class="nav-item">
+                        <a href="{{ route('admin.users.index') }}" class="nav-link {{ request()->routeIs('admin.users*') ? 'active' : '' }}">
+                            <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                            </svg>
+                            <span class="nav-text">Usuarios</span>
+                        </a>
+                    </li>
+                @endif
+            @endauth
+            
             <li class="nav-item">
                 <a href="{{ route('admin.settings') }}" class="nav-link {{ request()->routeIs('admin.settings*') ? 'active' : '' }}">
                     <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -66,8 +79,8 @@
                 </svg>
             </div>
             <div class="user-info">
-                <p class="user-name">Administrador</p>
-                <p class="user-role">Admin</p>
+                <p class="user-name">@auth{{ auth()->user()->name }}@else Administrador @endauth</p>
+                <p class="user-role">@auth{{ ucfirst(auth()->user()->role) }}@else Admin @endauth</p>
             </div>
         </div>
     </div>

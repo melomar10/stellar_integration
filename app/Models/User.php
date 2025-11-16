@@ -21,6 +21,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
     ];
 
     /**
@@ -42,4 +43,36 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
+
+    /**
+     * Verificar si el usuario es administrador
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    /**
+     * Verificar si el usuario es agente
+     */
+    public function isAgent(): bool
+    {
+        return $this->role === 'agent';
+    }
+
+    /**
+     * Verificar si el usuario es API
+     */
+    public function isApi(): bool
+    {
+        return $this->role === 'api';
+    }
+
+    /**
+     * Verificar si el usuario tiene acceso al panel de administración
+     */
+    public function canAccessAdmin(): bool
+    {
+        return in_array($this->role, ['admin', 'agent']);
+    }
 }

@@ -24,16 +24,21 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                         </svg>
                     </div>
-                    <span class="user-name-small">Admin</span>
+                    <span class="user-name-small">@auth{{ auth()->user()->name }}@else Admin @endauth</span>
                     <svg class="chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </button>
                 <div class="user-dropdown" id="userDropdown">
                     <a href="#" class="dropdown-item">Mi Perfil</a>
-                    <a href="#" class="dropdown-item">Configuración</a>
+                    <a href="{{ route('admin.settings') }}" class="dropdown-item">Configuración</a>
                     <div class="dropdown-divider"></div>
-                    <a href="#" class="dropdown-item">Cerrar Sesión</a>
+                    <form method="POST" action="{{ route('logout') }}" style="margin: 0;">
+                        @csrf
+                        <button type="submit" class="dropdown-item" style="width: 100%; text-align: left; background: none; border: none; cursor: pointer; padding: 0.5rem 1rem; color: inherit;">
+                            Cerrar Sesión
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

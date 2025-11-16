@@ -19,10 +19,20 @@ class ClientSeeder extends Seeder
             'email' => 'luisdanielcurso@gmail.com',
             'phone' => '+1 829-873-6708',
             'uuid' => 'R3kAJiMQZagWmQPIAkdsaG5stME2',
-            'status' => 'active',
+            'status' => true,
             'card_number_id' => '40227520364'
         ]);
 
         $this->command->info("Cliente de ejemplo creado con UUID: {$client->uuid}");
+
+        $client = Client::create([
+            'name' => 'Juan',
+            'last_name' => 'Perez',
+            'email' => 'juan.perez@ejemplo.com',
+            'phone' => '+1 809-555-1234',
+            'uuid' => 'abc123-def456-ghi789',
+            'status' => true,
+            'card_number_id' => '40227520364'
+        ]);
     }
 } 
