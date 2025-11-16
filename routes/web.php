@@ -15,6 +15,10 @@ Route::get('/kyc/callback', [BridgeController::class, 'kycCallback'])
 Route::get('/tos/{id}', [BridgeController::class, 'showTos'])
     ->name('bridge.kyc.tos');
 
+Route::get('/admin', function () {
+    return view('admin.dashboard');
+})->name('admin.dashboard');
+
 
 // routes/web.php
 // Route::get('/crear-customer', function () {

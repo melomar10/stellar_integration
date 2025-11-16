@@ -7,7 +7,7 @@ use App\Http\Controllers\BridgeController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\SirenaController;
 use App\Http\Controllers\ShortLinkController;
-
+use App\Http\Controllers\Flows\StepByFlowController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -59,4 +59,13 @@ Route::prefix('shortlink')->group(function () {
     Route::get('info/{linkId}', [ShortLinkController::class, 'getShortLinkInfo']);
     Route::put('update/{linkId}', [ShortLinkController::class, 'updateShortLink']);
     Route::delete('delete/{linkId}', [ShortLinkController::class, 'deleteShortLink']);
+});
+
+//Endpoint Flows
+Route::prefix('flows')->group(function () {
+    Route::post('step-by-flow', [StepByFlowController::class, 'createStepByFlow']);
+    Route::get('step-by-flow', [StepByFlowController::class, 'getStepByFlows']);
+    Route::get('step-by-flow/{clientId}', [StepByFlowController::class, 'getStepByFlowsByClientId']);
+    Route::get('client-step-by-flow', [StepByFlowController::class, 'getClientStepByFlows']);
+    Route::get('client-step-by-flow/{clientId}', [StepByFlowController::class, 'getStepByFlowByClientId']);
 });

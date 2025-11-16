@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Flows\StepByFlow;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Ramsey\Uuid\Uuid;
@@ -28,5 +29,9 @@ class Client extends Model
     public function transfers()
     {
         return $this->hasMany(Tranfer::class);
+    }
+    public function stepByFlows()
+    {
+        return $this->hasMany(StepByFlow::class);
     }
 }
