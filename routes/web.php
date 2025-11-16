@@ -30,9 +30,9 @@ Route::middleware(['auth', 'role'])->prefix('admin')->name('admin.')->group(func
         return view('admin.clients');
     })->name('clients');
 
-    Route::get('/flows', function () {
-        return view('admin.flows');
-    })->name('flows');
+    Route::get('/waiting-list', function () {
+        return view('admin.waiting-list');
+    })->name('waiting-list');
 
     Route::get('/transfers', function () {
         return view('admin.transfers');

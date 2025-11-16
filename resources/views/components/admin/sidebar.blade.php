@@ -29,22 +29,22 @@
             </li>
             
             <li class="nav-item">
-                <a href="{{ route('admin.flows') }}" class="nav-link {{ request()->routeIs('admin.flows*') ? 'active' : '' }}">
+                <a href="{{ route('admin.waiting-list') }}" class="nav-link {{ request()->routeIs('admin.waiting-list*') ? 'active' : '' }}">
                     <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                     </svg>
-                    <span class="nav-text">Flujos</span>
+                    <span class="nav-text">List de Espera</span>
                 </a>
             </li>
             
-            <li class="nav-item">
+            <!-- <li class="nav-item">
                 <a href="{{ route('admin.transfers') }}" class="nav-link {{ request()->routeIs('admin.transfers*') ? 'active' : '' }}">
                     <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
                     </svg>
                     <span class="nav-text">Transferencias</span>
                 </a>
-            </li>
+            </li>  -->
             
             @auth
                 @if(auth()->user()->isAdmin())
