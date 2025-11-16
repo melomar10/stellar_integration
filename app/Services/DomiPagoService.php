@@ -68,8 +68,6 @@ class DomiPagoService
         $identity = $data['identity'] ?? [];
         $legalName = $identity['legalName'] ?? [];
 
-        Log::info('extractClientData', ['data' => $apiResponse]);
-
         // Extraer nombre y apellido
         $name = '';
         $lastName = '';
