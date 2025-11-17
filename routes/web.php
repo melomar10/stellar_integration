@@ -18,6 +18,8 @@ Route::get('/tos/{id}', [BridgeController::class, 'showTos'])
 // Rutas de autenticación
 Route::middleware('guest')->group(function () {
     Route::get('/', [AuthController::class, 'showLoginForm'])->name('login');
+    Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+    Route::post('/', [AuthController::class, 'login']);
     Route::post('/login', [AuthController::class, 'login']);
 });
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
