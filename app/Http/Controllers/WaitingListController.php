@@ -10,11 +10,42 @@ use Illuminate\Support\Facades\Validator;
 
 class WaitingListController extends Controller
 {
-    public function getWaitingList(Request $request)
+    public function getWaitingList(Request $request): JsonResponse
     {
-        //traer todos los clientes que estan en la waiting list paginados y ordenados por created_at descendente
-        $waitingList = WaitingList::with('client')->orderBy('created_at', 'desc')->paginate($request->per_page ?? 10);
-        return response()->json($waitingList);
+        try {
+            $query = WaitingList::with('client');
+
+            // Filtro por nombre o teléfono del cliente
+            if ($request->has('search') && !empty($request->search)) {
+                $search = $request->search;
+                $query->whereHas('client', function($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('last_name', 'like', "%{$search}%")
+                      ->orWhere('phone', 'like', "%{$search}%");
+                });
+            }
+
+            // Paginación
+            $perPage = $request->get('per_page', 15);
+            $waitingList = $query->orderBy('created_at', 'desc')->paginate($perPage);
+
+            return response()->json([
+                'ok' => true,
+                'data' => $waitingList->items(),
+                'current_page' => $waitingList->currentPage(),
+                'last_page' => $waitingList->lastPage(),
+                'per_page' => $waitingList->perPage(),
+                'total' => $waitingList->total(),
+                'from' => $waitingList->firstItem(),
+                'to' => $waitingList->lastItem(),
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Error al obtener la lista de espera: ' . $e->getMessage()
+            ], 500);
+        }
     }
     public function addClientToWaitingList(Request $request): JsonResponse
     {
@@ -31,6 +62,15 @@ class WaitingListController extends Controller
                 'message' => 'Error de validación',
                 'errors' => $validator->errors()
             ], 422);
+        }
+
+        //valida que no se haya agregado el cliente a la waiting list
+        $waitingList = WaitingList::where('client_id', $request->client_id)->first();
+        if ($waitingList) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'El cliente ya se ha agregado a la lista de espera'
+            ], 400);
         }
 
         try {
