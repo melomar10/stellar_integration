@@ -36,4 +36,8 @@ class Client extends Model
     {
         return $this->hasMany(StepByFlow::class);
     }
+    public function waitingList()
+    {
+        return $this->hasMany(WaitingList::class);
+    }
 }

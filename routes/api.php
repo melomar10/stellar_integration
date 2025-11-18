@@ -8,6 +8,7 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\SirenaController;
 use App\Http\Controllers\ShortLinkController;
 use App\Http\Controllers\Flows\StepByFlowController;
+use App\Http\Controllers\WaitingListController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -53,6 +54,13 @@ Route::prefix('sirena')->group(function () {
     Route::post('request-bonus', [SirenaController::class, 'requestBonus']);
    // Route::get('recharge-resume', [SirenaController::class, 'getRechargeResume']);
   //  Route::get('companies-by-province/{provinceId}', [SirenaController::class, 'getCompaniesByProvince']);
+});
+
+//Endpoint Waiting List
+Route::prefix('waiting-list')->group(function () {
+    Route::get('/', [WaitingListController::class, 'getWaitingList']);
+    Route::post('/add', [WaitingListController::class, 'addClientToWaitingList']);
+    Route::get('/{id}', [WaitingListController::class, 'getWaitingListById']);
 });
 
 //Endpoint Short.io
