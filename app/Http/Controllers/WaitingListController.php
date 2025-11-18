@@ -51,6 +51,10 @@ class WaitingListController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'client_id' => 'required|exists:clients,id',
+            'client_name' => 'required|string|max:255',
+            'client_last_name' => 'required|string|max:255',
+            'client_phone' => 'required|string|max:35',
+            'client_email' => 'required|email',
         ], [
             'client_id.required' => 'El ID del cliente es requerido',
             'client_id.exists' => 'El cliente especificado no existe en la base de datos',
@@ -63,6 +67,7 @@ class WaitingListController extends Controller
                 'errors' => $validator->errors()
             ], 422);
         }
+        
 
         //valida que no se haya agregado el cliente a la waiting list
         $waitingList = WaitingList::where('client_id', $request->client_id)->first();
@@ -72,7 +77,13 @@ class WaitingListController extends Controller
                 'message' => 'El cliente ya se ha agregado a la lista de espera'
             ], 400);
         }
-
+    //Actualiza los datos del cliente en la tabla clients
+        $client = Client::find($request->client_id);
+        $client->name = $request->client_name;
+        $client->last_name = $request->client_last_name;
+        $client->phone = $request->client_phone;
+        $client->email = $request->client_email;
+        $client->save();
         try {
             $waitingList = WaitingList::create($request->all());
             return response()->json([
