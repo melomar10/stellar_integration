@@ -92,4 +92,11 @@ class WaitingListController extends Controller
         $waitingList = WaitingList::with('client')->find($id);
         return response()->json($waitingList);
     }
+
+    //buscar lista de espera por client_id
+    public function getWaitingListByClientId($clientId)
+    {
+        $waitingList = WaitingList::with('client')->where('client_id', $clientId)->first();
+        return response()->json($waitingList);
+    }
 }

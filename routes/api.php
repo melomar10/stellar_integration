@@ -61,6 +61,7 @@ Route::prefix('waiting-list')->group(function () {
     Route::get('/', [WaitingListController::class, 'getWaitingList']);
     Route::post('/add', [WaitingListController::class, 'addClientToWaitingList']);
     Route::get('/{id}', [WaitingListController::class, 'getWaitingListById']);
+    Route::get('/client/{clientId}', [WaitingListController::class, 'getWaitingListByClientId']);
 });
 
 //Endpoint Short.io
