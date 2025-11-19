@@ -111,6 +111,13 @@ class WaitingListController extends Controller
     public function getWaitingListByClientId($clientId)
     {
         $waitingList = WaitingList::with('client')->where('client_id', $clientId)->first();
+        //si no existe, retorna un mensaje de error
+        if (!$waitingList) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'El cliente no se encuentra en la lista de espera'
+            ], 404);
+        }
         return response()->json($waitingList);
     }
 }
