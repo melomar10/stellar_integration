@@ -7,7 +7,7 @@ use App\Models\WaitingList;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
-
+use Illuminate\Support\Facades\Log;
 class WaitingListController extends Controller
 {
     public function getWaitingList(Request $request): JsonResponse
@@ -61,6 +61,7 @@ class WaitingListController extends Controller
         ]);
 
         if ($validator->fails()) {
+            Log::error('Error de validación: ' . $validator->errors());
             return response()->json([
                 'ok' => false,
                 'message' => 'Error de validación',
@@ -72,6 +73,7 @@ class WaitingListController extends Controller
         //valida que no se haya agregado el cliente a la waiting list
         $waitingList = WaitingList::where('client_id', $request->client_id)->first();
         if ($waitingList) {
+            Log::error('El cliente ya se ha agregado a la lista de espera');
             return response()->json([
                 'ok' => false,
                 'message' => 'El cliente ya se ha agregado a la lista de espera'
@@ -92,6 +94,7 @@ class WaitingListController extends Controller
                 'data' => $waitingList
             ], 201);
         } catch (\Exception $e) {
+            Log::error('Error al agregar el cliente a la lista de espera: ' . $e->getMessage());
             return response()->json([
                 'ok' => false,
                 'message' => 'Error al agregar el cliente a la lista de espera: ' . $e->getMessage()
