@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Client;
+use App\Models\Flows\StepByFlow;
 use App\Services\DomiPagoService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -82,6 +83,31 @@ class ClientController extends Controller
                     $q->where('name', 'like', "%{$search}%")
                       ->orWhere('last_name', 'like', "%{$search}%")
                       ->orWhere('phone', 'like', "%{$search}%");
+                });
+            }
+
+            // Filtro por fecha del último step
+            $dateFrom = $request->get('date_from');
+            $dateTo = $request->get('date_to');
+            
+            if (!empty($dateFrom) || !empty($dateTo)) {
+                // Obtener clientes cuyo último step cumpla con el rango de fechas
+                $query->whereIn('id', function($subQuery) use ($dateFrom, $dateTo) {
+                    // Subquery para obtener el último step de cada cliente
+                    $subQuery->select('client_id')
+                             ->from('step_by_flows')
+                             ->whereRaw('created_at = (
+                                 SELECT MAX(created_at) 
+                                 FROM step_by_flows as s2 
+                                 WHERE s2.client_id = step_by_flows.client_id
+                             )');
+                    
+                    if (!empty($dateFrom)) {
+                        $subQuery->whereDate('created_at', '>=', $dateFrom);
+                    }
+                    if (!empty($dateTo)) {
+                        $subQuery->whereDate('created_at', '<=', $dateTo);
+                    }
                 });
             }
 

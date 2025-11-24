@@ -5,8 +5,10 @@
 @section('content')
 <div class="dashboard-container">
     <div class="content-card">
-        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-            <h2 class="card-title">Gestión de Clientes</h2>
+        <div class="card-header" style="display: flex; flex-direction: column; gap: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <h2 class="card-title">Gestión de Clientes</h2>
+            </div>
             <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
                 <div style="position: relative; flex: 1; min-width: 250px;">
                     <input 
@@ -20,6 +22,26 @@
                     <svg style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; color: var(--text-secondary); pointer-events: none;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                     </svg>
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <label for="dateFrom" style="font-size: 0.9rem; color: var(--text-secondary); white-space: nowrap;">Desde:</label>
+                    <input 
+                        type="date" 
+                        id="dateFrom" 
+                        style="padding: 0.75rem; border: 2px solid var(--border-color); border-radius: 8px; font-size: 1rem; transition: all 0.3s ease;"
+                        onfocus="this.style.borderColor='var(--primary-color)'; this.style.boxShadow='0 0 0 3px rgba(57, 183, 127, 0.1)'"
+                        onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'"
+                    >
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <label for="dateTo" style="font-size: 0.9rem; color: var(--text-secondary); white-space: nowrap;">Hasta:</label>
+                    <input 
+                        type="date" 
+                        id="dateTo" 
+                        style="padding: 0.75rem; border: 2px solid var(--border-color); border-radius: 8px; font-size: 1rem; transition: all 0.3s ease;"
+                        onfocus="this.style.borderColor='var(--primary-color)'; this.style.boxShadow='0 0 0 3px rgba(57, 183, 127, 0.1)'"
+                        onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'"
+                    >
                 </div>
                 <button 
                     id="searchBtn" 
@@ -335,25 +357,31 @@
     function init() {
         let currentPage = 1;
         let currentSearch = '';
+        let currentDateFrom = '';
+        let currentDateTo = '';
         const perPage = 15;
 
         const searchInput = document.getElementById('searchInput');
         const searchBtn = document.getElementById('searchBtn');
+        const dateFromInput = document.getElementById('dateFrom');
+        const dateToInput = document.getElementById('dateTo');
         const loadingIndicator = document.getElementById('loadingIndicator');
         const errorMessage = document.getElementById('errorMessage');
         const clientsTableBody = document.getElementById('clientsTableBody');
         const paginationContainer = document.getElementById('paginationContainer');
 
         // Verificar que todos los elementos existan
-        if (!searchInput || !searchBtn || !loadingIndicator || !errorMessage || !clientsTableBody || !paginationContainer) {
+        if (!searchInput || !searchBtn || !dateFromInput || !dateToInput || !loadingIndicator || !errorMessage || !clientsTableBody || !paginationContainer) {
             console.error('Error: No se encontraron todos los elementos necesarios del DOM');
             return;
         }
 
         // Función para cargar clientes
-        function loadClients(page = 1, search = '') {
+        function loadClients(page = 1, search = '', dateFrom = '', dateTo = '') {
             currentPage = page;
             currentSearch = search;
+            currentDateFrom = dateFrom;
+            currentDateTo = dateTo;
             
             loadingIndicator.style.display = 'block';
             errorMessage.style.display = 'none';
@@ -366,6 +394,14 @@
 
             if (search) {
                 params.append('search', search);
+            }
+            
+            if (dateFrom) {
+                params.append('date_from', dateFrom);
+            }
+            
+            if (dateTo) {
+                params.append('date_to', dateTo);
             }
 
             fetch(`/api/client/all?${params.toString()}`, {
@@ -471,11 +507,16 @@
 
             let paginationHTML = '<div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">';
 
+        // Escapar valores para evitar problemas con comillas
+        const escapedSearch = currentSearch.replace(/'/g, "\\'");
+        const escapedDateFrom = currentDateFrom.replace(/'/g, "\\'");
+        const escapedDateTo = currentDateTo.replace(/'/g, "\\'");
+
         // Botón Anterior
         if (data.current_page > 1) {
             paginationHTML += `
                 <button 
-                    onclick="loadClients(${data.current_page - 1}, '${currentSearch}')" 
+                    onclick="loadClients(${data.current_page - 1}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}')" 
                     style="padding: 0.5rem 1rem; border: 2px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;"
                     onmouseover="this.style.borderColor='var(--primary-color)'; this.style.color='var(--primary-color)'"
                     onmouseout="this.style.borderColor='var(--border-color)'; this.style.color='inherit'"
@@ -490,7 +531,7 @@
         const endPage = Math.min(data.last_page, data.current_page + 2);
 
         if (startPage > 1) {
-            paginationHTML += `<button onclick="loadClients(1, '${currentSearch}')" style="padding: 0.5rem 0.75rem; border: 2px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer;">1</button>`;
+            paginationHTML += `<button onclick="loadClients(1, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}')" style="padding: 0.5rem 0.75rem; border: 2px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer;">1</button>`;
             if (startPage > 2) {
                 paginationHTML += '<span style="padding: 0.5rem; color: var(--text-secondary);">...</span>';
             }
@@ -499,7 +540,7 @@
         for (let i = startPage; i <= endPage; i++) {
             paginationHTML += `
                 <button 
-                    onclick="loadClients(${i}, '${currentSearch}')" 
+                    onclick="loadClients(${i}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}')" 
                     style="padding: 0.5rem 0.75rem; border: 2px solid ${i === data.current_page ? 'var(--primary-color)' : 'var(--border-color)'}; background: ${i === data.current_page ? 'var(--primary-color)' : 'white'}; color: ${i === data.current_page ? 'white' : 'inherit'}; border-radius: 6px; cursor: pointer; font-weight: ${i === data.current_page ? '600' : '400'}; transition: all 0.2s ease;"
                     onmouseover="${i !== data.current_page ? "this.style.borderColor='var(--primary-color)'; this.style.color='var(--primary-color)'" : ''}"
                     onmouseout="${i !== data.current_page ? "this.style.borderColor='var(--border-color)'; this.style.color='inherit'" : ''}"
@@ -513,14 +554,14 @@
             if (endPage < data.last_page - 1) {
                 paginationHTML += '<span style="padding: 0.5rem; color: var(--text-secondary);">...</span>';
             }
-            paginationHTML += `<button onclick="loadClients(${data.last_page}, '${currentSearch}')" style="padding: 0.5rem 0.75rem; border: 2px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer;">${data.last_page}</button>`;
+            paginationHTML += `<button onclick="loadClients(${data.last_page}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}')" style="padding: 0.5rem 0.75rem; border: 2px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer;">${data.last_page}</button>`;
         }
 
         // Botón Siguiente
         if (data.current_page < data.last_page) {
             paginationHTML += `
                 <button 
-                    onclick="loadClients(${data.current_page + 1}, '${currentSearch}')" 
+                    onclick="loadClients(${data.current_page + 1}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}')" 
                     style="padding: 0.5rem 1rem; border: 2px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;"
                     onmouseover="this.style.borderColor='var(--primary-color)'; this.style.color='var(--primary-color)'"
                     onmouseout="this.style.borderColor='var(--border-color)'; this.style.color='inherit'"
@@ -546,7 +587,9 @@
         // Función para buscar
         function handleSearch() {
             const search = searchInput.value.trim();
-            loadClients(1, search);
+            const dateFrom = dateFromInput.value;
+            const dateTo = dateToInput.value;
+            loadClients(1, search, dateFrom, dateTo);
         }
 
         // Event listeners
@@ -906,7 +949,7 @@
 
                 // Éxito: cerrar modal y recargar la tabla
                 closeEditClientModal();
-                loadClients(currentPage, currentSearch);
+                loadClients(currentPage, currentSearch, currentDateFrom, currentDateTo);
                 
                 // Mostrar mensaje de éxito (opcional)
                 const successMsg = document.createElement('div');
@@ -950,7 +993,7 @@
         };
 
         // Cargar clientes al iniciar
-        loadClients(1, '');
+        loadClients(1, '', '', '');
     }
 })();
 </script>
