@@ -29,6 +29,17 @@
                 >
                     Buscar
                 </button>
+                <button 
+                    id="exportBtn" 
+                    style="background: #10b981; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; gap: 0.5rem;"
+                    onmouseover="this.style.background='#059669'; this.style.transform='translateY(-1px)'"
+                    onmouseout="this.style.background='#10b981'; this.style.transform='translateY(0)'"
+                >
+                    <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    Exportar Excel
+                </button>
             </div>
         </div>
         <div class="card-body">
@@ -67,6 +78,19 @@
         </div>
     </div>
 </div>
+
+@push('styles')
+<style>
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+</style>
+@endpush
 
 @push('scripts')
 <script>
@@ -282,8 +306,41 @@
             loadWaitingList(1, search);
         }
 
+        // Función para exportar a Excel
+        function exportToExcel() {
+            const exportBtn = document.getElementById('exportBtn');
+            const originalText = exportBtn.innerHTML;
+            
+            // Deshabilitar botón y mostrar loading
+            exportBtn.disabled = true;
+            exportBtn.innerHTML = '<svg style="width: 18px; height: 18px; animation: spin 1s linear infinite;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Exportando...';
+            
+            // Construir parámetros de filtro
+            const params = new URLSearchParams();
+            
+            const search = searchInput.value.trim();
+            
+            if (search) {
+                params.append('search', search);
+            }
+            
+            // Crear URL con parámetros y descargar
+            const url = `/admin/waiting-list/export${params.toString() ? '?' + params.toString() : ''}`;
+            window.location.href = url;
+            
+            // Restaurar botón después de un breve delay
+            setTimeout(() => {
+                exportBtn.disabled = false;
+                exportBtn.innerHTML = originalText;
+            }, 3000);
+        }
+
         // Event listeners
         searchBtn.addEventListener('click', handleSearch);
+        const exportBtn = document.getElementById('exportBtn');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', exportToExcel);
+        }
         searchInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 handleSearch();

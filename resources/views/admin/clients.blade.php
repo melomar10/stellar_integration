@@ -43,6 +43,32 @@
                         onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'"
                     >
                 </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <label for="stepNameFilter" style="font-size: 0.9rem; color: var(--text-secondary); white-space: nowrap;">Step:</label>
+                    <select 
+                        id="stepNameFilter" 
+                        style="padding: 0.75rem; border: 2px solid var(--border-color); border-radius: 8px; font-size: 1rem; transition: all 0.3s ease; min-width: 200px; background: white; cursor: pointer;"
+                        onfocus="this.style.borderColor='var(--primary-color)'; this.style.boxShadow='0 0 0 3px rgba(57, 183, 127, 0.1)'"
+                        onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'"
+                    >
+                        <option value="">Todos los steps</option>
+                        <option value="Saludo Inicial">Saludo Inicial</option>
+                        <option value="Estoy en DO">Estoy en DO</option>
+                        <option value="Estoy en US">Estoy en US</option>
+                        <option value="Ver Tutorial">Ver Tutorial</option>
+                        <option value="Reportar Problema">Reportar Problema</option>
+                        <option value="Crear Cuenta">Crear Cuenta</option>
+                        <option value="Tarifas y Costos">Tarifas y Costos</option>
+                        <option value="Servicio al cliente">Servicio al cliente</option>
+                        <option value="Función Domipago">Función Domipago</option>
+                        <option value="Hablar con un representante">Hablar con un representante</option>
+                        <option value="Enviar a Europa">Enviar a Europa</option>
+                        <option value="Registro Enviar a Europa">Registro Enviar a Europa</option>
+                        <option value="Registro Completo Enviar a Europa">Registro Completo Enviar a Europa</option>
+                        <option value="Cerrar Conversación">Cerrar Conversación</option>
+                        <option value="Obtener link de pago">Obtener link de pago</option>
+                    </select>
+                </div>
                 <button 
                     id="searchBtn" 
                     style="background: var(--primary-color); color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;"
@@ -50,6 +76,25 @@
                     onmouseout="this.style.background='var(--primary-color)'; this.style.transform='translateY(0)'"
                 >
                     Buscar
+                </button>
+                <button 
+                    id="clearFiltersBtn" 
+                    style="background: var(--light-gray); color: var(--text-primary); padding: 0.75rem 1.5rem; border: 2px solid var(--border-color); border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;"
+                    onmouseover="this.style.background='#e0e0e0'; this.style.borderColor='var(--text-secondary)'; this.style.transform='translateY(-1px)'"
+                    onmouseout="this.style.background='var(--light-gray)'; this.style.borderColor='var(--border-color)'; this.style.transform='translateY(0)'"
+                >
+                    Limpiar Filtros
+                </button>
+                <button 
+                    id="exportBtn" 
+                    style="background: #10b981; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; gap: 0.5rem;"
+                    onmouseover="this.style.background='#059669'; this.style.transform='translateY(-1px)'"
+                    onmouseout="this.style.background='#10b981'; this.style.transform='translateY(0)'"
+                >
+                    <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    Exportar Excel
                 </button>
             </div>
         </div>
@@ -339,6 +384,15 @@
         flex-direction: column;
     }
 }
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
 </style>
 @endpush
 
@@ -359,29 +413,32 @@
         let currentSearch = '';
         let currentDateFrom = '';
         let currentDateTo = '';
+        let currentStepName = '';
         const perPage = 15;
 
         const searchInput = document.getElementById('searchInput');
         const searchBtn = document.getElementById('searchBtn');
         const dateFromInput = document.getElementById('dateFrom');
         const dateToInput = document.getElementById('dateTo');
+        const stepNameFilter = document.getElementById('stepNameFilter');
         const loadingIndicator = document.getElementById('loadingIndicator');
         const errorMessage = document.getElementById('errorMessage');
         const clientsTableBody = document.getElementById('clientsTableBody');
         const paginationContainer = document.getElementById('paginationContainer');
 
         // Verificar que todos los elementos existan
-        if (!searchInput || !searchBtn || !dateFromInput || !dateToInput || !loadingIndicator || !errorMessage || !clientsTableBody || !paginationContainer) {
+        if (!searchInput || !searchBtn || !dateFromInput || !dateToInput || !stepNameFilter || !loadingIndicator || !errorMessage || !clientsTableBody || !paginationContainer) {
             console.error('Error: No se encontraron todos los elementos necesarios del DOM');
             return;
         }
 
         // Función para cargar clientes
-        function loadClients(page = 1, search = '', dateFrom = '', dateTo = '') {
+        function loadClients(page = 1, search = '', dateFrom = '', dateTo = '', stepName = '') {
             currentPage = page;
             currentSearch = search;
             currentDateFrom = dateFrom;
             currentDateTo = dateTo;
+            currentStepName = stepName;
             
             loadingIndicator.style.display = 'block';
             errorMessage.style.display = 'none';
@@ -402,6 +459,10 @@
             
             if (dateTo) {
                 params.append('date_to', dateTo);
+            }
+            
+            if (stepName) {
+                params.append('step_name', stepName);
             }
 
             fetch(`/api/client/all?${params.toString()}`, {
@@ -511,12 +572,13 @@
         const escapedSearch = currentSearch.replace(/'/g, "\\'");
         const escapedDateFrom = currentDateFrom.replace(/'/g, "\\'");
         const escapedDateTo = currentDateTo.replace(/'/g, "\\'");
+        const escapedStepName = currentStepName.replace(/'/g, "\\'");
 
         // Botón Anterior
         if (data.current_page > 1) {
             paginationHTML += `
                 <button 
-                    onclick="loadClients(${data.current_page - 1}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}')" 
+                    onclick="loadClients(${data.current_page - 1}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}', '${escapedStepName}')" 
                     style="padding: 0.5rem 1rem; border: 2px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;"
                     onmouseover="this.style.borderColor='var(--primary-color)'; this.style.color='var(--primary-color)'"
                     onmouseout="this.style.borderColor='var(--border-color)'; this.style.color='inherit'"
@@ -531,7 +593,7 @@
         const endPage = Math.min(data.last_page, data.current_page + 2);
 
         if (startPage > 1) {
-            paginationHTML += `<button onclick="loadClients(1, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}')" style="padding: 0.5rem 0.75rem; border: 2px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer;">1</button>`;
+            paginationHTML += `<button onclick="loadClients(1, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}', '${escapedStepName}')" style="padding: 0.5rem 0.75rem; border: 2px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer;">1</button>`;
             if (startPage > 2) {
                 paginationHTML += '<span style="padding: 0.5rem; color: var(--text-secondary);">...</span>';
             }
@@ -540,7 +602,7 @@
         for (let i = startPage; i <= endPage; i++) {
             paginationHTML += `
                 <button 
-                    onclick="loadClients(${i}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}')" 
+                    onclick="loadClients(${i}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}', '${escapedStepName}')" 
                     style="padding: 0.5rem 0.75rem; border: 2px solid ${i === data.current_page ? 'var(--primary-color)' : 'var(--border-color)'}; background: ${i === data.current_page ? 'var(--primary-color)' : 'white'}; color: ${i === data.current_page ? 'white' : 'inherit'}; border-radius: 6px; cursor: pointer; font-weight: ${i === data.current_page ? '600' : '400'}; transition: all 0.2s ease;"
                     onmouseover="${i !== data.current_page ? "this.style.borderColor='var(--primary-color)'; this.style.color='var(--primary-color)'" : ''}"
                     onmouseout="${i !== data.current_page ? "this.style.borderColor='var(--border-color)'; this.style.color='inherit'" : ''}"
@@ -554,14 +616,14 @@
             if (endPage < data.last_page - 1) {
                 paginationHTML += '<span style="padding: 0.5rem; color: var(--text-secondary);">...</span>';
             }
-            paginationHTML += `<button onclick="loadClients(${data.last_page}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}')" style="padding: 0.5rem 0.75rem; border: 2px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer;">${data.last_page}</button>`;
+            paginationHTML += `<button onclick="loadClients(${data.last_page}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}', '${escapedStepName}')" style="padding: 0.5rem 0.75rem; border: 2px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer;">${data.last_page}</button>`;
         }
 
         // Botón Siguiente
         if (data.current_page < data.last_page) {
             paginationHTML += `
                 <button 
-                    onclick="loadClients(${data.current_page + 1}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}')" 
+                    onclick="loadClients(${data.current_page + 1}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}', '${escapedStepName}')" 
                     style="padding: 0.5rem 1rem; border: 2px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;"
                     onmouseover="this.style.borderColor='var(--primary-color)'; this.style.color='var(--primary-color)'"
                     onmouseout="this.style.borderColor='var(--border-color)'; this.style.color='inherit'"
@@ -589,11 +651,70 @@
             const search = searchInput.value.trim();
             const dateFrom = dateFromInput.value;
             const dateTo = dateToInput.value;
-            loadClients(1, search, dateFrom, dateTo);
+            const stepName = stepNameFilter.value;
+            loadClients(1, search, dateFrom, dateTo, stepName);
+        }
+
+        // Función para limpiar todos los filtros
+        function clearFilters() {
+            searchInput.value = '';
+            dateFromInput.value = '';
+            dateToInput.value = '';
+            stepNameFilter.value = '';
+            loadClients(1, '', '', '', '');
+        }
+
+        // Función para exportar a Excel
+        function exportToExcel() {
+            const exportBtn = document.getElementById('exportBtn');
+            const originalText = exportBtn.innerHTML;
+            
+            // Deshabilitar botón y mostrar loading
+            exportBtn.disabled = true;
+            exportBtn.innerHTML = '<svg style="width: 18px; height: 18px; animation: spin 1s linear infinite;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Exportando...';
+            
+            // Construir parámetros de filtro
+            const params = new URLSearchParams();
+            
+            const search = searchInput.value.trim();
+            const dateFrom = dateFromInput.value;
+            const dateTo = dateToInput.value;
+            const stepName = stepNameFilter.value;
+            
+            if (search) {
+                params.append('search', search);
+            }
+            if (dateFrom) {
+                params.append('date_from', dateFrom);
+            }
+            if (dateTo) {
+                params.append('date_to', dateTo);
+            }
+            if (stepName) {
+                params.append('step_name', stepName);
+            }
+            
+            // Crear URL con parámetros y descargar
+            const url = `/admin/clients/export${params.toString() ? '?' + params.toString() : ''}`;
+            window.location.href = url;
+            
+            // Restaurar botón después de un breve delay
+            setTimeout(() => {
+                exportBtn.disabled = false;
+                exportBtn.innerHTML = originalText;
+            }, 3000);
         }
 
         // Event listeners
         searchBtn.addEventListener('click', handleSearch);
+        const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', clearFilters);
+        }
+        const exportBtn = document.getElementById('exportBtn');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', exportToExcel);
+        }
         searchInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 handleSearch();
@@ -949,7 +1070,7 @@
 
                 // Éxito: cerrar modal y recargar la tabla
                 closeEditClientModal();
-                loadClients(currentPage, currentSearch, currentDateFrom, currentDateTo);
+                loadClients(currentPage, currentSearch, currentDateFrom, currentDateTo, currentStepName);
                 
                 // Mostrar mensaje de éxito (opcional)
                 const successMsg = document.createElement('div');
@@ -993,7 +1114,7 @@
         };
 
         // Cargar clientes al iniciar
-        loadClients(1, '', '', '');
+        loadClients(1, '', '', '', '');
     }
 })();
 </script>

@@ -5,6 +5,8 @@ use App\Http\Controllers\BridgeController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ClientController;
+use App\Http\Controllers\WaitingListController;
 
 /*Route::get('/', function () {
     return view('welcome');
@@ -32,9 +34,13 @@ Route::middleware(['auth', 'role'])->prefix('admin')->name('admin.')->group(func
         return view('admin.clients');
     })->name('clients');
 
+    Route::get('/clients/export', [ClientController::class, 'exportClients'])->name('clients.export');
+
     Route::get('/waiting-list', function () {
         return view('admin.waiting-list');
     })->name('waiting-list');
+
+    Route::get('/waiting-list/export', [WaitingListController::class, 'exportWaitingList'])->name('waiting-list.export');
 
     Route::get('/transfers', function () {
         return view('admin.transfers');

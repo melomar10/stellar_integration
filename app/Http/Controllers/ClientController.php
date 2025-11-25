@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Client;
 use App\Models\Flows\StepByFlow;
 use App\Services\DomiPagoService;
+use App\Services\ExportService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Ramsey\Uuid\Uuid;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ClientController extends Controller
 {
@@ -74,42 +76,8 @@ class ClientController extends Controller
     public function getClients(Request $request): JsonResponse
     {
         try {
-            $query = Client::query();
-
-            // Filtro por nombre
-            if ($request->has('search') && !empty($request->search)) {
-                $search = $request->search;
-                $query->where(function($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('last_name', 'like', "%{$search}%")
-                      ->orWhere('phone', 'like', "%{$search}%");
-                });
-            }
-
-            // Filtro por fecha del último step
-            $dateFrom = $request->get('date_from');
-            $dateTo = $request->get('date_to');
-            
-            if (!empty($dateFrom) || !empty($dateTo)) {
-                // Obtener clientes cuyo último step cumpla con el rango de fechas
-                $query->whereIn('id', function($subQuery) use ($dateFrom, $dateTo) {
-                    // Subquery para obtener el último step de cada cliente
-                    $subQuery->select('client_id')
-                             ->from('step_by_flows')
-                             ->whereRaw('created_at = (
-                                 SELECT MAX(created_at) 
-                                 FROM step_by_flows as s2 
-                                 WHERE s2.client_id = step_by_flows.client_id
-                             )');
-                    
-                    if (!empty($dateFrom)) {
-                        $subQuery->whereDate('created_at', '>=', $dateFrom);
-                    }
-                    if (!empty($dateTo)) {
-                        $subQuery->whereDate('created_at', '<=', $dateTo);
-                    }
-                });
-            }
+            // Usar el método compartido para construir la query con filtros
+            $query = $this->buildFilteredQuery($request);
 
             // Paginación
             $perPage = $request->get('per_page', 15);
@@ -310,6 +278,113 @@ class ClientController extends Controller
                 'ok' => false,
                 'message' => 'Error al actualizar el cliente: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Construye la query con los filtros aplicados
+     */
+    private function buildFilteredQuery(Request $request)
+    {
+        $query = Client::query();
+
+        // Filtro por nombre
+        if ($request->has('search') && !empty($request->search)) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+
+        // Filtro por fecha del último step
+        $dateFrom = $request->get('date_from');
+        $dateTo = $request->get('date_to');
+        $stepName = $request->get('step_name');
+        
+        // Construir condiciones para el último step
+        $hasDateFilter = !empty($dateFrom) || !empty($dateTo);
+        $hasStepNameFilter = !empty($stepName);
+        
+        if ($hasDateFilter || $hasStepNameFilter) {
+            // Obtener clientes cuyo último step cumpla con los filtros
+            $query->whereIn('id', function($subQuery) use ($dateFrom, $dateTo, $stepName) {
+                // Subquery para obtener el último step de cada cliente
+                $subQuery->select('client_id')
+                         ->from('step_by_flows')
+                         ->whereRaw('created_at = (
+                             SELECT MAX(created_at) 
+                             FROM step_by_flows as s2 
+                             WHERE s2.client_id = step_by_flows.client_id
+                         )');
+                
+                if (!empty($dateFrom)) {
+                    $subQuery->whereDate('created_at', '>=', $dateFrom);
+                }
+                if (!empty($dateTo)) {
+                    $subQuery->whereDate('created_at', '<=', $dateTo);
+                }
+                if (!empty($stepName)) {
+                    $subQuery->where('name', $stepName);
+                }
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Exportar clientes a Excel con los mismos filtros aplicados
+     */
+    public function exportClients(Request $request, ExportService $exportService): StreamedResponse
+    {
+        try {
+            // Aplicar los mismos filtros que getClients pero sin paginación
+            $query = $this->buildFilteredQuery($request);
+            $clients = $query->orderBy('created_at', 'desc')->get();
+
+            // Si no hay clientes, exportar un archivo vacío con encabezados
+            if ($clients->isEmpty()) {
+                $data = [];
+            } else {
+                // Preparar datos para exportación
+                $data = $clients->map(function($client) {
+                    return [
+                        'id' => $client->id,
+                        'name' => $client->name ?? '',
+                        'last_name' => $client->last_name ?? '',
+                        'email' => $client->email ?? '',
+                        'phone' => $client->phone ?? '',
+                        'status' => $client->status ? 'Activo' : 'Inactivo',
+                        'has_account' => $client->has_account ? 'Sí' : 'No',
+                        'country' => $client->country ?? '',
+                        'created_at' => $client->created_at ? $client->created_at->format('Y-m-d H:i:s') : '',
+                    ];
+                })->toArray();
+            }
+
+            // Definir encabezados
+            $headers = [
+                ['key' => 'id', 'label' => 'ID'],
+                ['key' => 'name', 'label' => 'Nombre'],
+                ['key' => 'last_name', 'label' => 'Apellido'],
+                ['key' => 'email', 'label' => 'Email'],
+                ['key' => 'phone', 'label' => 'Teléfono'],
+                ['key' => 'status', 'label' => 'Estado'],
+                ['key' => 'has_account', 'label' => 'Tiene Cuenta'],
+                ['key' => 'country', 'label' => 'País'],
+                ['key' => 'created_at', 'label' => 'Fecha de Creación'],
+            ];
+
+            // Generar nombre de archivo con fecha
+            $filename = 'clientes_' . date('Y-m-d_His');
+
+            return $exportService->exportToExcel($data, $headers, $filename);
+
+        } catch (\Exception $e) {
+            \Log::error('Error al exportar clientes: ' . $e->getMessage());
+            abort(500, 'Error al exportar los clientes: ' . $e->getMessage());
         }
     }
 }

@@ -4,26 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Models\Client;
 use App\Models\WaitingList;
+use App\Services\ExportService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 class WaitingListController extends Controller
 {
     public function getWaitingList(Request $request): JsonResponse
     {
         try {
-            $query = WaitingList::with('client');
-
-            // Filtro por nombre o teléfono del cliente
-            if ($request->has('search') && !empty($request->search)) {
-                $search = $request->search;
-                $query->whereHas('client', function($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('last_name', 'like', "%{$search}%")
-                      ->orWhere('phone', 'like', "%{$search}%");
-                });
-            }
+            // Usar el método compartido para construir la query con filtros
+            $query = $this->buildFilteredQuery($request);
 
             // Paginación
             $perPage = $request->get('per_page', 15);
@@ -119,5 +112,76 @@ class WaitingListController extends Controller
             ], 404);
         }
         return response()->json($waitingList);
+    }
+
+    /**
+     * Construye la query con los filtros aplicados
+     */
+    private function buildFilteredQuery(Request $request)
+    {
+        $query = WaitingList::with('client');
+
+        // Filtro por nombre o teléfono del cliente
+        if ($request->has('search') && !empty($request->search)) {
+            $search = $request->search;
+            $query->whereHas('client', function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Exportar lista de espera a Excel con los mismos filtros aplicados
+     */
+    public function exportWaitingList(Request $request, ExportService $exportService): StreamedResponse
+    {
+        try {
+            // Aplicar los mismos filtros que getWaitingList pero sin paginación
+            $query = $this->buildFilteredQuery($request);
+            $waitingList = $query->orderBy('created_at', 'desc')->get();
+
+            // Si no hay registros, exportar un archivo vacío con encabezados
+            if ($waitingList->isEmpty()) {
+                $data = [];
+            } else {
+                // Preparar datos para exportación
+                $data = $waitingList->map(function($item) {
+                    $client = $item->client ?? (object)[];
+                    return [
+                        'id' => $item->id,
+                        'client_name' => $client->name ?? '',
+                        'client_last_name' => $client->last_name ?? '',
+                        'client_email' => $client->email ?? '',
+                        'client_phone' => $client->phone ?? '',
+                        'client_status' => isset($client->status) && $client->status ? 'Activo' : 'Inactivo',
+                        'created_at' => $item->created_at ? $item->created_at->format('Y-m-d H:i:s') : '',
+                    ];
+                })->toArray();
+            }
+
+            // Definir encabezados
+            $headers = [
+                ['key' => 'id', 'label' => 'ID'],
+                ['key' => 'client_name', 'label' => 'Nombre'],
+                ['key' => 'client_last_name', 'label' => 'Apellido'],
+                ['key' => 'client_email', 'label' => 'Email'],
+                ['key' => 'client_phone', 'label' => 'Teléfono'],
+                ['key' => 'client_status', 'label' => 'Estado'],
+                ['key' => 'created_at', 'label' => 'Fecha de Registro'],
+            ];
+
+            // Generar nombre de archivo con fecha
+            $filename = 'lista_espera_' . date('Y-m-d_His');
+
+            return $exportService->exportToExcel($data, $headers, $filename);
+
+        } catch (\Exception $e) {
+            Log::error('Error al exportar lista de espera: ' . $e->getMessage());
+            abort(500, 'Error al exportar la lista de espera: ' . $e->getMessage());
+        }
     }
 }
