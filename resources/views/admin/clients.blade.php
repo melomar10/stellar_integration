@@ -69,6 +69,19 @@
                         <option value="Obtener link de pago">Obtener link de pago</option>
                     </select>
                 </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <label for="hasAccountFilter" style="font-size: 0.9rem; color: var(--text-secondary); white-space: nowrap;">Tiene Cuenta:</label>
+                    <select 
+                        id="hasAccountFilter" 
+                        style="padding: 0.75rem; border: 2px solid var(--border-color); border-radius: 8px; font-size: 1rem; transition: all 0.3s ease; min-width: 150px; background: white; cursor: pointer;"
+                        onfocus="this.style.borderColor='var(--primary-color)'; this.style.boxShadow='0 0 0 3px rgba(57, 183, 127, 0.1)'"
+                        onblur="this.style.borderColor='var(--border-color)'; this.style.boxShadow='none'"
+                    >
+                        <option value="">Todos</option>
+                        <option value="1">Sí</option>
+                        <option value="0">No</option>
+                    </select>
+                </div>
                 <button 
                     id="searchBtn" 
                     style="background: var(--primary-color); color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;"
@@ -414,6 +427,7 @@
         let currentDateFrom = '';
         let currentDateTo = '';
         let currentStepName = '';
+        let currentHasAccount = '';
         const perPage = 15;
 
         const searchInput = document.getElementById('searchInput');
@@ -421,24 +435,26 @@
         const dateFromInput = document.getElementById('dateFrom');
         const dateToInput = document.getElementById('dateTo');
         const stepNameFilter = document.getElementById('stepNameFilter');
+        const hasAccountFilter = document.getElementById('hasAccountFilter');
         const loadingIndicator = document.getElementById('loadingIndicator');
         const errorMessage = document.getElementById('errorMessage');
         const clientsTableBody = document.getElementById('clientsTableBody');
         const paginationContainer = document.getElementById('paginationContainer');
 
         // Verificar que todos los elementos existan
-        if (!searchInput || !searchBtn || !dateFromInput || !dateToInput || !stepNameFilter || !loadingIndicator || !errorMessage || !clientsTableBody || !paginationContainer) {
+        if (!searchInput || !searchBtn || !dateFromInput || !dateToInput || !stepNameFilter || !hasAccountFilter || !loadingIndicator || !errorMessage || !clientsTableBody || !paginationContainer) {
             console.error('Error: No se encontraron todos los elementos necesarios del DOM');
             return;
         }
 
         // Función para cargar clientes
-        function loadClients(page = 1, search = '', dateFrom = '', dateTo = '', stepName = '') {
+        function loadClients(page = 1, search = '', dateFrom = '', dateTo = '', stepName = '', hasAccount = '') {
             currentPage = page;
             currentSearch = search;
             currentDateFrom = dateFrom;
             currentDateTo = dateTo;
             currentStepName = stepName;
+            currentHasAccount = hasAccount;
             
             loadingIndicator.style.display = 'block';
             errorMessage.style.display = 'none';
@@ -463,6 +479,10 @@
             
             if (stepName) {
                 params.append('step_name', stepName);
+            }
+            
+            if (hasAccount !== '') {
+                params.append('has_account', hasAccount);
             }
 
             fetch(`/api/client/all?${params.toString()}`, {
@@ -573,12 +593,13 @@
         const escapedDateFrom = currentDateFrom.replace(/'/g, "\\'");
         const escapedDateTo = currentDateTo.replace(/'/g, "\\'");
         const escapedStepName = currentStepName.replace(/'/g, "\\'");
+        const escapedHasAccount = currentHasAccount.replace(/'/g, "\\'");
 
         // Botón Anterior
         if (data.current_page > 1) {
             paginationHTML += `
                 <button 
-                    onclick="loadClients(${data.current_page - 1}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}', '${escapedStepName}')" 
+                    onclick="loadClients(${data.current_page - 1}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}', '${escapedStepName}', '${escapedHasAccount}')" 
                     style="padding: 0.5rem 1rem; border: 2px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;"
                     onmouseover="this.style.borderColor='var(--primary-color)'; this.style.color='var(--primary-color)'"
                     onmouseout="this.style.borderColor='var(--border-color)'; this.style.color='inherit'"
@@ -593,7 +614,7 @@
         const endPage = Math.min(data.last_page, data.current_page + 2);
 
         if (startPage > 1) {
-            paginationHTML += `<button onclick="loadClients(1, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}', '${escapedStepName}')" style="padding: 0.5rem 0.75rem; border: 2px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer;">1</button>`;
+            paginationHTML += `<button onclick="loadClients(1, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}', '${escapedStepName}', '${escapedHasAccount}')" style="padding: 0.5rem 0.75rem; border: 2px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer;">1</button>`;
             if (startPage > 2) {
                 paginationHTML += '<span style="padding: 0.5rem; color: var(--text-secondary);">...</span>';
             }
@@ -602,7 +623,7 @@
         for (let i = startPage; i <= endPage; i++) {
             paginationHTML += `
                 <button 
-                    onclick="loadClients(${i}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}', '${escapedStepName}')" 
+                    onclick="loadClients(${i}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}', '${escapedStepName}', '${escapedHasAccount}')" 
                     style="padding: 0.5rem 0.75rem; border: 2px solid ${i === data.current_page ? 'var(--primary-color)' : 'var(--border-color)'}; background: ${i === data.current_page ? 'var(--primary-color)' : 'white'}; color: ${i === data.current_page ? 'white' : 'inherit'}; border-radius: 6px; cursor: pointer; font-weight: ${i === data.current_page ? '600' : '400'}; transition: all 0.2s ease;"
                     onmouseover="${i !== data.current_page ? "this.style.borderColor='var(--primary-color)'; this.style.color='var(--primary-color)'" : ''}"
                     onmouseout="${i !== data.current_page ? "this.style.borderColor='var(--border-color)'; this.style.color='inherit'" : ''}"
@@ -616,14 +637,14 @@
             if (endPage < data.last_page - 1) {
                 paginationHTML += '<span style="padding: 0.5rem; color: var(--text-secondary);">...</span>';
             }
-            paginationHTML += `<button onclick="loadClients(${data.last_page}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}', '${escapedStepName}')" style="padding: 0.5rem 0.75rem; border: 2px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer;">${data.last_page}</button>`;
+            paginationHTML += `<button onclick="loadClients(${data.last_page}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}', '${escapedStepName}', '${escapedHasAccount}')" style="padding: 0.5rem 0.75rem; border: 2px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer;">${data.last_page}</button>`;
         }
 
         // Botón Siguiente
         if (data.current_page < data.last_page) {
             paginationHTML += `
                 <button 
-                    onclick="loadClients(${data.current_page + 1}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}', '${escapedStepName}')" 
+                    onclick="loadClients(${data.current_page + 1}, '${escapedSearch}', '${escapedDateFrom}', '${escapedDateTo}', '${escapedStepName}', '${escapedHasAccount}')" 
                     style="padding: 0.5rem 1rem; border: 2px solid var(--border-color); background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;"
                     onmouseover="this.style.borderColor='var(--primary-color)'; this.style.color='var(--primary-color)'"
                     onmouseout="this.style.borderColor='var(--border-color)'; this.style.color='inherit'"
@@ -652,7 +673,8 @@
             const dateFrom = dateFromInput.value;
             const dateTo = dateToInput.value;
             const stepName = stepNameFilter.value;
-            loadClients(1, search, dateFrom, dateTo, stepName);
+            const hasAccount = hasAccountFilter.value;
+            loadClients(1, search, dateFrom, dateTo, stepName, hasAccount);
         }
 
         // Función para limpiar todos los filtros
@@ -661,7 +683,8 @@
             dateFromInput.value = '';
             dateToInput.value = '';
             stepNameFilter.value = '';
-            loadClients(1, '', '', '', '');
+            hasAccountFilter.value = '';
+            loadClients(1, '', '', '', '', '');
         }
 
         // Función para exportar a Excel
@@ -680,6 +703,7 @@
             const dateFrom = dateFromInput.value;
             const dateTo = dateToInput.value;
             const stepName = stepNameFilter.value;
+            const hasAccount = hasAccountFilter.value;
             
             if (search) {
                 params.append('search', search);
@@ -692,6 +716,9 @@
             }
             if (stepName) {
                 params.append('step_name', stepName);
+            }
+            if (hasAccount !== '') {
+                params.append('has_account', hasAccount);
             }
             
             // Crear URL con parámetros y descargar
@@ -1070,7 +1097,7 @@
 
                 // Éxito: cerrar modal y recargar la tabla
                 closeEditClientModal();
-                loadClients(currentPage, currentSearch, currentDateFrom, currentDateTo, currentStepName);
+                loadClients(currentPage, currentSearch, currentDateFrom, currentDateTo, currentStepName, currentHasAccount);
                 
                 // Mostrar mensaje de éxito (opcional)
                 const successMsg = document.createElement('div');
@@ -1114,7 +1141,7 @@
         };
 
         // Cargar clientes al iniciar
-        loadClients(1, '', '', '', '');
+        loadClients(1, '', '', '', '', '');
     }
 })();
 </script>

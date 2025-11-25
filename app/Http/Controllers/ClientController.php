@@ -298,6 +298,18 @@ class ClientController extends Controller
             });
         }
 
+        // Filtro por has_account
+        if ($request->has('has_account') && $request->has_account !== '') {
+            // Convertir string "0" o "1" a boolean
+            // "1" o "true" = true, "0" o "false" = false
+            $hasAccountValue = $request->has_account;
+            if ($hasAccountValue === '1' || $hasAccountValue === 1 || $hasAccountValue === 'true' || $hasAccountValue === true) {
+                $query->where('has_account', true);
+            } elseif ($hasAccountValue === '0' || $hasAccountValue === 0 || $hasAccountValue === 'false' || $hasAccountValue === false) {
+                $query->where('has_account', false);
+            }
+        }
+
         // Filtro por fecha del último step
         $dateFrom = $request->get('date_from');
         $dateTo = $request->get('date_to');
