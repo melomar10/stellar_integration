@@ -45,9 +45,9 @@ class WaitingListController extends Controller
         $validator = Validator::make($request->all(), [
             'client_id' => 'required|exists:clients,id',
             'client_name' => 'required|string|max:255',
-            'client_last_name' => 'required|string|max:255',
-            'client_phone' => 'required|string|max:35',
-            'client_email' => 'required|email',
+            'client_last_name' => 'nullable|string|max:255',
+            'client_phone' => 'nullable|string|max:35',
+            'client_email' => 'nullable|email',
         ], [
             'client_id.required' => 'El ID del cliente es requerido',
             'client_id.exists' => 'El cliente especificado no existe en la base de datos',
