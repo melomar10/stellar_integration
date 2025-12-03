@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\SirenaService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 
 class SirenaController extends Controller
 {
@@ -67,6 +68,7 @@ class SirenaController extends Controller
         ];
 
         $result = $this->sirenaService->requestBonus($params);
+        Log::info('requestBonus', ['result' => $result]);
         
         return response()->json($result);
     }
