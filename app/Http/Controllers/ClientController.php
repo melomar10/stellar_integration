@@ -228,10 +228,10 @@ class ClientController extends Controller
     {
         try {
             $request->validate([
-                'name' => 'required|string|max:255',
-                'last_name' => 'required|string|max:255',
+                'name' => 'nullable|string|max:255',
+                'last_name' => 'nullable|string|max:255',
                 'email' => 'nullable|email',
-                'phone' => 'required|string|max:20',
+                'phone' => 'nullable|string|max:20',
                 'card_number_id' => 'nullable|string|max:255',
                 'status' => 'nullable|boolean'
             ]);
@@ -252,6 +252,16 @@ class ClientController extends Controller
             }
             $phone = preg_replace('/[^0-9]/', '', $phone);
 
+            //valida si no trae el nombre 
+            if (!$request->has('name')) {
+                $client->card_number_id = $request->card_number_id;
+                $client->save();
+                return response()->json([
+                    'ok' => true,
+                    'message' => 'Cliente actualizado exitosamente',
+                    'data' => $client
+                ]);
+            }
             $client->name = $request->name;
             $client->last_name = $request->last_name;
             $client->email = $request->email;
