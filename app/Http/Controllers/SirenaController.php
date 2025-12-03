@@ -45,7 +45,8 @@ class SirenaController extends Controller
     public function requestBonus(Request $request): JsonResponse
     {
         $request->validate([
-            'user_id' => 'required|string',
+            'id' => 'required|integer',
+            'user_id' => 'nullable|string',
             'amount' => 'required|numeric|min:0',
             'note' => 'nullable|string',
             'company' => 'nullable|string',
@@ -55,6 +56,7 @@ class SirenaController extends Controller
         ]);
 
         $params = [
+            'id' => $request->id,
             'user_id' => $request->user_id,
             'amount' => $request->amount,
             'note' => $request->note ?? '',

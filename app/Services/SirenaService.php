@@ -122,7 +122,7 @@ class SirenaService
     {
         try {
             // Validar parámetros requeridos
-            if (!isset($params['user_id']) || !isset($params['amount'])) {
+            if (!isset($params['id']) || !isset($params['amount'])) {
                 return [
                     'ok' => false,
                     'message' => 'user_id y amount son requeridos',
@@ -130,8 +130,8 @@ class SirenaService
                 ];
             }
 
-            // Buscar el cliente
-            $client = Client::where('uuid', $params['user_id'])->first();
+            // Buscar el di
+            $client = Client::where('id', $params['id'])->first();
             if (!$client) {
                 return [
                     'ok' => false,
