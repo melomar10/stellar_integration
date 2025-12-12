@@ -51,6 +51,8 @@ Route::prefix('client')->group(function () {
     Route::put('{id}', [ClientController::class, 'update']);
 });
 
+Route::post('test-flow', [ClientController::class, 'testFlow']);
+
 //Endpoint Sirena 
 Route::prefix('sirena')->group(function () {
     Route::post('request-bonus', [SirenaController::class, 'requestBonus']);

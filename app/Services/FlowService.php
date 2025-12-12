@@ -7,30 +7,62 @@ use Illuminate\Support\Facades\Log;
 class FlowService
 {
     /**
-     * Parsea el string JSON del flow y retorna un array manejable
+     * Convierte cualquier flow (string JSON) en un array JSON manejable
+     * Esta función es genérica y funciona con cualquier estructura de flow
      * 
      * @param string $flowString String JSON del flow
-     * @return array|null Array con los datos parseados o null si hay error
+     * @return array|null Array con todos los valores del flow parseados o null si hay error
      */
-    public function parseFlow(string $flowString): ?array
+    public function convertFlowToJson(string $flowString): ?array
     {
         try {
+            // Si el string está vacío, retornar null
+            if (empty(trim($flowString))) {
+                Log::warning('Flow string vacío');
+                return null;
+            }
+
+            // Intentar decodificar el JSON
             $decoded = json_decode($flowString, true);
             
+            // Verificar si hubo error en el decode
             if (json_last_error() !== JSON_ERROR_NONE) {
-                Log::error('Error al parsear flow JSON: ' . json_last_error_msg(), [
-                    'flow_string' => $flowString
+                Log::error('Error al convertir flow a JSON: ' . json_last_error_msg(), [
+                    'flow_string' => $flowString,
+                    'json_error' => json_last_error()
+                ]);
+                return null;
+            }
+
+            // Verificar que el resultado sea un array
+            if (!is_array($decoded)) {
+                Log::warning('Flow convertido no es un array', [
+                    'flow_string' => $flowString,
+                    'decoded_type' => gettype($decoded)
                 ]);
                 return null;
             }
 
             return $decoded;
         } catch (\Exception $e) {
-            Log::error('Excepción al parsear flow: ' . $e->getMessage(), [
-                'flow_string' => $flowString
+            Log::error('Excepción al convertir flow a JSON: ' . $e->getMessage(), [
+                'flow_string' => $flowString,
+                'trace' => $e->getTraceAsString()
             ]);
             return null;
         }
+    }
+
+    /**
+     * Parsea el string JSON del flow y retorna un array manejable
+     * (Wrapper de convertFlowToJson para mantener compatibilidad)
+     * 
+     * @param string $flowString String JSON del flow
+     * @return array|null Array con los datos parseados o null si hay error
+     */
+    public function parseFlow(string $flowString): ?array
+    {
+        return $this->convertFlowToJson($flowString);
     }
 
     /**
