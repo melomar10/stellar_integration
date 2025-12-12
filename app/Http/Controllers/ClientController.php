@@ -18,10 +18,13 @@ class ClientController extends Controller
     public function testFlow(Request $request): JsonResponse
     {
         Log::info('Test flow', $request->all());
+        $flowService = new FlowService();
+        $flowData = $flowService->convertFlowToJson($request->flow);
+        Log::info('Flow data', $flowData);
         return response()->json([
             'ok' => true,
             'message' => 'Test flow',
-            'data' => $request->all()
+            'data' => $flowData
         ]);
     }
     /**
