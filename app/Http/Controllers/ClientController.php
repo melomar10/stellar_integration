@@ -78,12 +78,7 @@ class ClientController extends Controller
     public function createByFlow(Request $request): JsonResponse
     {
         try {
-            // Validar campos requeridos
-            $request->validate([
-                'flow' => 'required|string',
-                'phone' => 'required|string|max:20',
-                'type' => 'nullable|string|max:255'
-            ]);
+            Log::info('Creating client by flow', $request->all());
 
             // Normalizar teléfono
             $phone = preg_replace('/[^0-9]/', '', $request->phone);
@@ -91,6 +86,10 @@ class ClientController extends Controller
                 $phone = '1' . $phone;
             }
             $phone = preg_replace('/[^0-9]/', '', $phone);
+            // Procesar el flow usando FlowService
+            $flowService = new FlowService();
+            $flowData = $flowService->processFlow($request->flow);
+            Log::info('Flow data', $flowData);
 
             // Verificar si el cliente ya existe
             $client = Client::where('phone', $phone)->first();
@@ -103,10 +102,6 @@ class ClientController extends Controller
                 ]);
             }
 
-            // Procesar el flow usando FlowService
-            $flowService = new FlowService();
-            $flowData = $flowService->processFlow($request->flow);
-            Log::info('Flow data', $flowData);
             return response()->json($flowData);
 
             if ($flowData === null) {
