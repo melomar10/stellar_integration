@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\Flows\StepByFlow;
 use App\Services\DomiPagoService;
 use App\Services\ExportService;
+use App\Services\FlowService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -74,14 +75,103 @@ class ClientController extends Controller
     /**
      * Crear un nuevo cliente por flow
      */
-    public function createByFlow(Request $request) 
+    public function createByFlow(Request $request): JsonResponse
     {
-        Log::info('Creating client by flow', $request->all());
-        return response()->json([
-            'ok' => true,
-            'message' => 'Cliente creado exitosamente',
-            'data' => $request->all()
-        ]);
+        try {
+            // Validar campos requeridos
+            $request->validate([
+                'flow' => 'required|string',
+                'phone' => 'required|string|max:20',
+                'type' => 'nullable|string|max:255'
+            ]);
+
+            // Normalizar teléfono
+            $phone = preg_replace('/[^0-9]/', '', $request->phone);
+            if (substr($phone, 0, 1) !== '1') {
+                $phone = '1' . $phone;
+            }
+            $phone = preg_replace('/[^0-9]/', '', $phone);
+
+            // Verificar si el cliente ya existe
+            $client = Client::where('phone', $phone)->first();
+            
+            if ($client) {
+                return response()->json([
+                    'ok' => true,
+                    'message' => 'Cliente ya existe',
+                    'data' => $client
+                ]);
+            }
+
+            // Procesar el flow usando FlowService
+            $flowService = new FlowService();
+            $flowData = $flowService->processFlow($request->flow);
+            Log::info('Flow data', $flowData);
+            return response()->json($flowData);
+
+            if ($flowData === null) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Error al procesar el flow: JSON inválido'
+                ], 422);
+            }
+
+            // Preparar datos del cliente
+            $clientData = [
+                'name' => $flowData['name'] ?? 'Sin nombre',
+                'last_name' => $flowData['last_name'] ?? '',
+                'email' => $flowData['email'] ?? null,
+                'phone' => $phone,
+                'card_number_id' => $flowData['card_number_id'] ?? null,
+                'uuid' => Uuid::uuid4()->toString(),
+                'status' => true,
+                'has_account' => false,
+                'country' => 'DO',
+            ];
+
+            // Crear el cliente
+            $client = Client::create($clientData);
+
+            // Crear el step by flow si se proporcionó el type
+            if ($request->has('type') && !empty($request->type)) {
+                StepByFlow::create([
+                    'client_id' => $client->id,
+                    'name' => $request->type,
+                    'description' => 'Cliente creado desde flow',
+                    'type' => $request->type,
+                ]);
+            }
+
+            Log::info('Cliente creado exitosamente por flow', [
+                'client_id' => $client->id,
+                'phone' => $phone,
+                'flow_token' => $flowData['flow_token'] ?? null
+            ]);
+
+            return response()->json([
+                'ok' => true,
+                'message' => 'Cliente creado exitosamente',
+                'data' => $client
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Error de validación',
+                'errors' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            Log::error('Error al crear cliente por flow: ' . $e->getMessage(), [
+                'request' => $request->all(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'message' => 'Error al crear el cliente: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -419,7 +509,7 @@ class ClientController extends Controller
             return $exportService->exportToExcel($data, $headers, $filename);
 
         } catch (\Exception $e) {
-            \Log::error('Error al exportar clientes: ' . $e->getMessage());
+            Log::error('Error al exportar clientes: ' . $e->getMessage());
             abort(500, 'Error al exportar los clientes: ' . $e->getMessage());
         }
     }
