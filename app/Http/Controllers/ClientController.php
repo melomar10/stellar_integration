@@ -8,6 +8,7 @@ use App\Services\DomiPagoService;
 use App\Services\ExportService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 use Ramsey\Uuid\Uuid;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -69,6 +70,19 @@ class ClientController extends Controller
             ], 500);
         }
     }   
+
+    /**
+     * Crear un nuevo cliente por flow
+     */
+    public function createByFlow(Request $request) 
+    {
+        Log::info('Creating client by flow', $request->all());
+        return response()->json([
+            'ok' => true,
+            'message' => 'Cliente creado exitosamente',
+            'data' => $request->all()
+        ]);
+    }
 
     /**
      * Obtener todos los clientes con paginación y filtros

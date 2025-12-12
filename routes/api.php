@@ -42,6 +42,7 @@ Route::prefix('alfred')->group(function () {
 //enpoints clientes
 Route::prefix('client')->group(function () {
     Route::post('new', [ClientController::class, 'create']);
+    Route::post('new/by-flow', [ClientController::class, 'createByFlow']);
     Route::get('all', [ClientController::class, 'getClients']);
     Route::get('uuid/{uuid}', [ClientController::class, 'getClientByUuid']);
     Route::get('phone/{phone}', [ClientController::class, 'getClientbyPhone']);
