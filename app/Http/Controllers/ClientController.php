@@ -200,7 +200,7 @@ class ClientController extends Controller
     /**
      * Obtener cliente por teléfono por flow
      */
-    public function getClientbyPhoneByFlow($phone): JsonResponse
+    public function getClientbyPhoneBySirena($phone): JsonResponse
     {
         $phone = preg_replace('/[^0-9]/', '', $phone);
             if (substr($phone, 0, 1) !== '1') {
