@@ -46,6 +46,7 @@ Route::prefix('client')->group(function () {
     Route::get('all', [ClientController::class, 'getClients']);
     Route::get('uuid/{uuid}', [ClientController::class, 'getClientByUuid']);
     Route::get('phone/{phone}', [ClientController::class, 'getClientbyPhone']);
+    Route::get('phone/by-flow/{phone}', [ClientController::class, 'getClientbyPhoneByFlow']);
     Route::get('{id}', [ClientController::class, 'getClientById']);
     Route::put('{id}', [ClientController::class, 'update']);
 });

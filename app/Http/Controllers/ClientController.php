@@ -78,7 +78,6 @@ class ClientController extends Controller
     public function createByFlow(Request $request): JsonResponse
     {
         try {
-            Log::info('Creating client by flow', $request->all());
 
             // Normalizar teléfono
             $phone = preg_replace('/[^0-9]/', '', $request->phone);
@@ -86,10 +85,6 @@ class ClientController extends Controller
                 $phone = '1' . $phone;
             }
             $phone = preg_replace('/[^0-9]/', '', $phone);
-            // Procesar el flow usando FlowService
-            $flowService = new FlowService();
-            $flowData = $flowService->processFlow($request->flow);
-            Log::info('Flow data', $flowData);
 
             // Verificar si el cliente ya existe
             $client = Client::where('phone', $phone)->first();
@@ -101,9 +96,10 @@ class ClientController extends Controller
                     'data' => $client
                 ]);
             }
-
-            return response()->json($flowData);
-
+            // Procesar el flow usando FlowService
+            $flowService = new FlowService();
+            $flowData = $flowService->processFlow($request->flow);
+            
             if ($flowData === null) {
                 return response()->json([
                     'ok' => false,
@@ -199,6 +195,31 @@ class ClientController extends Controller
                 'message' => 'Error al obtener los clientes: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Obtener cliente por teléfono por flow
+     */
+    public function getClientbyPhoneByFlow($phone): JsonResponse
+    {
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+            if (substr($phone, 0, 1) !== '1') {
+                $phone = '1' . $phone;
+            }
+            $phone = preg_replace('/[^0-9]/', '', $phone);
+
+            // Buscar cliente en la BD local
+            $client = Client::where('phone', $phone)->first();
+
+            if ($client) {
+                return response()->json($client);
+            }
+
+            return response()->json([
+                'ok' => false,
+                'message' => 'Cliente no encontrado',
+                'data' => null
+            ], 404);
     }
 
     /**
