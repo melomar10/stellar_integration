@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\FlowService;
 use App\Services\SirenaService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -48,7 +49,7 @@ class SirenaController extends Controller
         $request->validate([
             'id' => 'required|integer',
             'user_id' => 'nullable|string',
-            'amount' => 'required|numeric|min:0',
+            'amount' => 'nullable|numeric|min:0',
             'note' => 'nullable|string',
             'company' => 'nullable|string',
             'phone_sender' => 'nullable|string',
@@ -56,6 +57,21 @@ class SirenaController extends Controller
             'type' => 'nullable|string',
         ]);
 
+     //valida si viene el campo flow
+     if($request->has('flow')){
+        $flowService = new FlowService();
+        $flowData = $flowService->convertFlowToJson($request->flow);
+        $params = [
+            'id' => $request->id,
+            'user_id' => $request->user_id,
+            'amount' => $flowData['monto'] ?? 0,
+            'note' => $request->note ?? '',
+            'company' => $request->company ?? 'Sirena',
+            'phone_sender' => $flowData['Phone_Number'] ?? '',
+            'sender_name' => $flowData['Nombre_y_Aprellido_0'] ?? '',
+            'type' => $request->type ?? ''
+        ];
+     }else{
         $params = [
             'id' => $request->id,
             'user_id' => $request->user_id,
@@ -66,6 +82,7 @@ class SirenaController extends Controller
             'sender_name' => $request->sender_name ?? '',
             'type' => $request->type ?? ''
         ];
+    }
 
         $result = $this->sirenaService->requestBonus($params);
         Log::info('requestBonus', ['result' => $result]);
