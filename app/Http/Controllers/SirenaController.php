@@ -67,7 +67,7 @@ class SirenaController extends Controller
             'amount' => $flowData['monto'] ?? 0,
             'note' => $request->note ?? '',
             'company' => $request->company ?? 'Sirena',
-            'phone_sender' => $flowData['Phone_Number'] ?? '',
+            'phone_sender' => $flowData['Phone_Number'] ?? $request->phone_sender ?? '',
             'sender_name' => $flowData['Nombre_y_Aprellido_0'] ?? '',
             'type' => $request->type ?? ''
         ];
