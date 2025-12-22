@@ -43,6 +43,7 @@ class WaitingListController extends Controller
     }
     public function addClientToWaitingList(Request $request): JsonResponse
     {
+        Log::info('addClientToWaitingList', $request->all());
         //validar si viene desde flow
         if ($request->has('flow')) {
             $flowService = new FlowService();
