@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Client;
 use App\Models\WaitingList;
 use App\Services\ExportService;
+use App\Services\FlowService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
@@ -42,26 +43,39 @@ class WaitingListController extends Controller
     }
     public function addClientToWaitingList(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'client_id' => 'required|exists:clients,id',
-            'client_name' => 'required|string|max:255',
-            'client_last_name' => 'nullable|string|max:255',
-            'client_phone' => 'nullable|string|max:35',
-            'client_email' => 'nullable|email',
-        ], [
-            'client_id.required' => 'El ID del cliente es requerido',
-            'client_id.exists' => 'El cliente especificado no existe en la base de datos',
-        ]);
+        //validar si viene desde flow
+        if ($request->has('flow')) {
+            $flowService = new FlowService();
+            $flowData = $flowService->convertFlowToJson($request->flow);
+            //divide el nombre completo en nombre y apellido
 
-        if ($validator->fails()) {
-            Log::error('Error de validación: ' . $validator->errors());
-            return response()->json([
-                'ok' => false,
-                'message' => 'Error de validación',
-                'errors' => $validator->errors()
-            ], 422);
+            $request->merge([
+                'client_name' => $flowData['screen_0_Nombre_0'],
+                'client_last_name' => $flowData['screen_0_Apellido_1'] ?? '',
+                'client_phone' => $flowData['screen_0_Tlefono_3'],
+                'client_email' => $flowData['screen_0_Correo_Electrnico_2'],
+            ]);
+        }else {
+            $validator = Validator::make($request->all(), [
+                'client_id' => 'required|exists:clients,id',
+                'client_name' => 'required|string|max:255',
+                'client_last_name' => 'nullable|string|max:255',
+                'client_phone' => 'nullable|string|max:35',
+                'client_email' => 'nullable|email',
+            ], [
+                'client_id.required' => 'El ID del cliente es requerido',
+                'client_id.exists' => 'El cliente especificado no existe en la base de datos',
+            ]);
+            
+            if ($validator->fails()) {
+                Log::error('Error de validación: ' . $validator->errors());
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Error de validación',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
         }
-        
 
         //valida que no se haya agregado el cliente a la waiting list
         $waitingList = WaitingList::where('client_id', $request->client_id)->first();
