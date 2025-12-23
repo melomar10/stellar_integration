@@ -218,54 +218,29 @@ class MailchimpMarketingService
     }
     
     public function sendTransactionalTemplate(string $toEmail, string $subject, string $templateName): array
-    {
-        $payload = [
-            'key' => Config::get('services.mailchimp_tx.api_key'),
-            'template_name' => $templateName,
-            'template_content' => [],
-            'message' => [
-                'subject' => $subject,
-                'from_email' => Config::get('services.mailchimp_tx.from_email'),
-                'from_name' => Config::get('services.mailchimp_tx.from_name'),
-                'to' => [[ 'email' => $toEmail, 'type' => 'to' ]],
-            ],
-            'async' => false
-        ];
-        
-        $res = \Illuminate\Support\Facades\Http::post(
-            'https://mandrillapp.com/api/1.0/messages/send-template.json',
-            $payload
-        );
-        
-        if ($res->failed()) {
-            $statusCode = $res->status();
-            $responseBody = $res->json();
+        {
+            $payload = [
+                'key' => (string) Config::get('services.mailchimp.api_key'),
+                'template_name' => $templateName,
+                'template_content' => [],
+                'message' => [
+                    'subject' => $subject,
+                    'from_email' => (string) Config::get('services.mailchimp.reply_to'),
+                    'from_name' => (string) Config::get('services.mailchimp.from_name'),
+                    'to' => [[ 'email' => $toEmail, 'type' => 'to' ]],
+                ],
+                'async' => false
+            ];
             
-            // Validar error 401 - Invalid API key
-            if ($statusCode === 401) {
-                $errorMessage = $responseBody['message'] ?? 'Invalid API key';
-                $errorCode = $responseBody['code'] ?? 401;
-                $errorName = $responseBody['name'] ?? 'Invalid_Key';
-                
-                \Illuminate\Support\Facades\Log::error('Mailchimp Transactional API Error 401', [
-                    'error_code' => $errorCode,
-                    'error_name' => $errorName,
-                    'error_message' => $errorMessage,
-                    'email' => $toEmail,
-                    'template_name' => $templateName,
-                    'api_key_configured' => !empty(Config::get('services.mailchimp_tx.api_key')),
-                ]);
-                
-                throw new \RuntimeException(
-                    "Error de autenticación con Mailchimp Transactional API: {$errorMessage}. " .
-                    "Por favor, verifica que la API key esté configurada correctamente en el archivo .env"
-                );
+            $res = \Illuminate\Support\Facades\Http::post(
+                'https://mandrillapp.com/api/1.0/messages/send-template.json',
+                $payload
+            );
+            
+            if ($res->failed()) {
+                throw new \Illuminate\Http\Client\RequestException($res);
             }
             
-            // Para otros errores, lanzar la excepción original
-            throw new \Illuminate\Http\Client\RequestException($res);
+            return $res->json();
         }
-        
-        return $res->json();
-    }
 }
