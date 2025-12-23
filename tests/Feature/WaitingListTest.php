@@ -30,16 +30,7 @@ class WaitingListTest extends TestCase
             'country' => 'DO',
         ]);
 
-        // Mock de las respuestas de Mailchimp Marketing API
-        // 1. Crear campaña
-        // 2. Asignar contenido con template
-        // 3. Enviar test email
-        Http::fake([
-            '*.api.mailchimp.com/3.0/campaigns' => Http::sequence()
-                ->push(['id' => 'campaign-123', 'type' => 'regular'], 200) // Crear campaña
-                ->push(['html' => '<html>...</html>'], 200), // Asignar contenido
-            '*.api.mailchimp.com/3.0/campaigns/*/actions/test' => Http::response([], 204), // Enviar test
-        ]);
+
 
         // Datos para la petición
         $requestData = [
@@ -52,7 +43,6 @@ class WaitingListTest extends TestCase
 
         // Realizar la petición POST
         $response = $this->postJson('/api/waiting-list/add', $requestData);
-
         // Verificar que la respuesta sea exitosa
         $response->assertStatus(201)
             ->assertJson([
