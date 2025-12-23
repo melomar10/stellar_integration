@@ -97,20 +97,44 @@ class WaitingListController extends Controller
         $client->email = $request->client_email;
         $client->save();
 
-
-        //enviar correo de confirmacion de ingreso a la waiting list
-        $mailchimpTransactionalService = new MailchimpMarketingService();
-        $response = $mailchimpTransactionalService->sendIndividualUsingTemplate($request->client_email, 'Bienvenida a EU - Domipagos', 1, []);
-
-        dd($response);
-
         try {
+            //enviar correo de confirmacion de ingreso a la waiting list
+            $mailchimpTransactionalService = new MailchimpMarketingService();
+            $mailchimpTransactionalService->sendTransactionalTemplate(
+                $request->client_email, 
+                'Bienvenida a EU - Domipagos', 
+                'Bienvenida a EU - Domipagos'
+            );
+
             $waitingList = WaitingList::create($request->all());
             return response()->json([
                 'ok' => true,
                 'message' => 'Cliente agregado a la lista de espera exitosamente',
                 'data' => $waitingList
             ], 201);
+        } catch (\RuntimeException $e) {
+            // Capturar errores específicos de Mailchimp (como error 401)
+            Log::error('Error al enviar correo de confirmación: ' . $e->getMessage(), [
+                'email' => $request->client_email,
+                'exception' => $e
+            ]);
+            
+            // Aún así, crear el registro en waiting list aunque falle el correo
+            try {
+                $waitingList = WaitingList::create($request->all());
+                return response()->json([
+                    'ok' => true,
+                    'message' => 'Cliente agregado a la lista de espera, pero hubo un error al enviar el correo de confirmación',
+                    'data' => $waitingList,
+                    'warning' => $e->getMessage()
+                ], 201);
+            } catch (\Exception $dbException) {
+                Log::error('Error al agregar el cliente a la lista de espera: ' . $dbException->getMessage());
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Error al agregar el cliente a la lista de espera: ' . $dbException->getMessage()
+                ], 500);
+            }
         } catch (\Exception $e) {
             Log::error('Error al agregar el cliente a la lista de espera: ' . $e->getMessage());
             return response()->json([
