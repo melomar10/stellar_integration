@@ -20,6 +20,14 @@ return [
         'endpoint' => env('MAILGUN_ENDPOINT', 'api.mailgun.net'),
         'scheme' => 'https',
     ],
+    
+    'mailchimp' => [
+        'api_key' => env('MAILCHIMP_API_KEY'),
+        'server' => env('MAILCHIMP_SERVER', 'us17'),
+        'audience_id' => env('MAILCHIMP_AUDIENCE_ID'),
+        'from_name' => env('MAILCHIMP_FROM_NAME', config('app.name')),
+        'reply_to' => env('MAILCHIMP_REPLY_TO'),
+    ],
 
     'postmark' => [
         'token' => env('POSTMARK_TOKEN'),

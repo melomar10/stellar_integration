@@ -11,6 +11,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Services\MailchimpMarketingService;
+
 class WaitingListController extends Controller
 {
     public function getWaitingList(Request $request): JsonResponse
@@ -94,6 +96,14 @@ class WaitingListController extends Controller
         $client->phone = $request->client_phone;
         $client->email = $request->client_email;
         $client->save();
+
+
+        //enviar correo de confirmacion de ingreso a la waiting list
+        $mailchimpTransactionalService = new MailchimpMarketingService();
+        $response = $mailchimpTransactionalService->sendIndividualUsingTemplate($request->client_email, 'Bienvenida a EU - Domipagos', 1, []);
+
+        dd($response);
+
         try {
             $waitingList = WaitingList::create($request->all());
             return response()->json([
