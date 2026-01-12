@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Iniciar Sesión - Panel de Administración</title>
+    <title>Registro - Panel de Administración</title>
     <style>
         :root {
             --primary-color: #39B77F;
@@ -92,26 +92,6 @@
             color: var(--text-light);
         }
 
-        .form-checkbox {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .form-checkbox input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-            accent-color: var(--primary-color);
-        }
-
-        .form-checkbox label {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            cursor: pointer;
-        }
-
         .btn-login {
             width: 100%;
             padding: 0.875rem;
@@ -192,7 +172,7 @@
     <div class="login-container">
         <div class="login-header">
             <h1 class="login-logo">Admin Panel</h1>
-            <p class="login-subtitle">Inicia sesión para continuar</p>
+            <p class="login-subtitle">Crea una cuenta para comenzar</p>
         </div>
 
         @if ($errors->any())
@@ -211,8 +191,25 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('login') }}">
+        <form method="POST" action="{{ route('register') }}">
             @csrf
+
+            <div class="form-group">
+                <label for="name" class="form-label">Nombre Completo</label>
+                <input 
+                    type="text" 
+                    id="name" 
+                    name="name" 
+                    class="form-input @error('name') error @endif" 
+                    value="{{ old('name') }}" 
+                    placeholder="Juan Pérez"
+                    required 
+                    autofocus
+                >
+                @error('name')
+                    <span class="text-error">{{ $message }}</span>
+                @enderror
+            </div>
 
             <div class="form-group">
                 <label for="email" class="form-label">Correo Electrónico</label>
@@ -223,8 +220,7 @@
                     class="form-input @error('email') error @endif" 
                     value="{{ old('email') }}" 
                     placeholder="tu@email.com"
-                    required 
-                    autofocus
+                    required
                 >
                 @error('email')
                     <span class="text-error">{{ $message }}</span>
@@ -238,7 +234,7 @@
                     id="password" 
                     name="password" 
                     class="form-input @error('password') error @endif" 
-                    placeholder="••••••••"
+                    placeholder="Mínimo 8 caracteres"
                     required
                 >
                 @error('password')
@@ -246,20 +242,26 @@
                 @enderror
             </div>
 
-            <div class="form-checkbox">
-                <input type="checkbox" id="remember" name="remember">
-                <label for="remember">Recordarme</label>
+            <div class="form-group">
+                <label for="password_confirmation" class="form-label">Confirmar Contraseña</label>
+                <input 
+                    type="password" 
+                    id="password_confirmation" 
+                    name="password_confirmation" 
+                    class="form-input" 
+                    placeholder="Repite tu contraseña"
+                    required
+                >
             </div>
 
             <button type="submit" class="btn-login">
-                Iniciar Sesión
+                Registrarse
             </button>
         </form>
 
         <div class="register-link">
-            <p>¿No tienes una cuenta? <a href="{{ route('register') }}">Regístrate aquí</a></p>
+            <p>¿Ya tienes una cuenta? <a href="{{ route('login') }}">Inicia sesión</a></p>
         </div>
     </div>
 </body>
 </html>
-
