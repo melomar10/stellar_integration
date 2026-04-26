@@ -207,11 +207,37 @@ class AlfredController extends Controller
                 'files' => $flowJson['files'] ?? [],
             ]);
             Log::debug('kycResponse', [$kycResponse]);
+
+            $kycId = null;
+            if (is_array($kycResponse)) {
+                $kycId = $kycResponse['kycId']
+                    ?? $kycResponse['id']
+                    ?? ($kycResponse['data']['kycId'] ?? null)
+                    ?? ($kycResponse['data']['id'] ?? null)
+                    ?? ($kycResponse['submissionId'] ?? null);
+            }
+
+            if (!empty($kycId)) {
+                $alfredAccount->kyc_id = (string) $kycId;
+                $alfredAccount->save();
+
+                try {
+                    $alfred->updateCustomer($customerDto->customerId, ['kycId' => (string) $kycId]);
+                } catch (\Throwable $e) {
+                    Log::warning('No se pudo actualizar customer con kycId', [
+                        'customerId' => $customerDto->customerId,
+                        'kycId' => $kycId,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
             return response()->json([
                 'ok' => true,
                 'client' => $client->fresh()->load('alfredAccount'),
                 'alfred_account' => $alfredAccount,
                 'alfred_customer_id' => $customerDto->customerId,
+                'kyc_id' => $kycId,
                 'kyc' => $kycResponse,
             ], 200);
         } catch (\Illuminate\Validation\ValidationException $e) {

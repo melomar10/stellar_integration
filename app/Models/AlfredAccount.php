@@ -11,6 +11,7 @@ class AlfredAccount extends Model
 
     protected $fillable = [
         'alfred_customer_id',
+        'kyc_id',
         'first_name',
         'middle_name',
         'last_name',
