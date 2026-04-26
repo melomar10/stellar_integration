@@ -428,7 +428,7 @@ class ClientController extends Controller
      */
     private function buildFilteredQuery(Request $request)
     {
-        $query = Client::query();
+        $query = Client::query()->with('alfredAccount');
 
         // Filtro por nombre
         if ($request->has('search') && !empty($request->search)) {

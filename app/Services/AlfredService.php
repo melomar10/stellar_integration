@@ -2,9 +2,10 @@
 
 namespace App\Services;
 
+use App\Casts\CustomerDto;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 class AlfredService
 {
@@ -14,55 +15,137 @@ class AlfredService
     public function __construct()
     {
         $this->baseUri = config('services.alfred.base_uri');
-        $this->headers = [
+        $this->headers = array_filter([
             'Content-Type'     => 'application/json',
             'accept'         => 'application/json',
             'api-key'     => config('services.alfred.api_key'),
             'api-secret' => config('services.alfred.api_secret')
-        ];
+        ], static fn ($v) => !is_null($v) && $v !== '');
     }
 
-    // 1. Crear Customer
+    private function normalizeCustomerPayload(array $data): array
+    {
+        // Permite compatibilidad con payloads viejos (email/phoneNumber/country)
+        // y soporta el nuevo contrato del API (/customer).
+        $phone = $data['phone'] ?? $data['phoneNumber'] ?? null;
+
+        $dob = $data['dateOfBirth'] ?? $data['dob'] ?? null;
+        if (!empty($dob)) {
+            try {
+                $dob = Carbon::parse($dob)->toDateString();
+            } catch (\Throwable $e) {
+                // Si viene en formato ya válido, lo dejamos pasar tal cual
+            }
+        }
+
+        return array_filter([
+            'firstName'    => $data['firstName'] ?? $data['name'] ?? null,
+            'lastName'     => $data['lastName'] ?? $data['surname'] ?? null,
+            'email'        => $data['email'] ?? null,
+            'phone'        => $phone,
+            'address'      => $data['address'] ?? null,
+            'city'         => $data['city'] ?? null,
+            'country'      => $data['country'] ?? null,
+            'postalCode'   => $data['postalCode'] ?? null,
+            'dateOfBirth'  => $dob,
+            'isActive'     => array_key_exists('isActive', $data) ? (bool) $data['isActive'] : null,
+            'kycId'        => $data['kycId'] ?? null,
+        ], static fn ($v) => !is_null($v));
+    }
+
+    private function customerDtoFromResponse(array $data): CustomerDto
+    {
+        $id = $data['customerId']
+            ?? $data['id']
+            ?? ($data['customer']['customerId'] ?? null)
+            ?? ($data['customer']['id'] ?? null);
+
+        $createdAt = $data['createdAt']
+            ?? $data['created_at']
+            ?? ($data['customer']['createdAt'] ?? null)
+            ?? ($data['customer']['created_at'] ?? null)
+            ?? now()->toISOString();
+
+        if (empty($id)) {
+            throw new \RuntimeException('Respuesta de customer sin id (customerId/id).');
+        }
+
+        return new CustomerDto((string) $id, (string) $createdAt);
+    }
+
+    // Customer - Crear (POST /customer)
     public function createCustomer(array $data): CustomerDto
     {
-        Log::info('Creating customer', $data);
-       $data = Http::withHeaders($this->headers)->post("{$this->baseUri}/customers", [
-            'type' =>  'INDIVIDUAL',
-            'email' =>  $data['email'],
-            "phoneNumber" =>  $data['phoneNumber'],
-        ])->throw()->json();
-        
-         return new CustomerDto(
-            $data['customerId'],
-            $data['createdAt'],
-        );
-    }
-   public function GetCustomerByEmail(string $email): FiatAccountDto
-    {
-            $data = Http::withHeaders($this->headers)
-            ->get("{$this->baseUri}/customers/find/{$email}")
+        $payload = $this->normalizeCustomerPayload($data);
+        Log::info('Creating customer (POST /customer)', $payload);
+
+        $resp = Http::withHeaders($this->headers)
+            ->post("{$this->baseUri}/customer", $payload)
             ->throw()
             ->json();
 
-        return new CustomerDto(
-            $data['customerId'],
-            $data['createdAt'],
-        );
+        return $this->customerDtoFromResponse(is_array($resp) ? $resp : []);
     }
-    // 1.1 Crear el Country de Customer
+
+    // Customer - Obtener (GET /customer?...) y devolver el primer match como DTO
+    public function GetCustomerByEmail(string $email): CustomerDto
+    {
+        $resp = Http::withHeaders($this->headers)
+            ->get("{$this->baseUri}/customer", ['email' => $email])
+            ->throw()
+            ->json();
+
+        // El API podría devolver un objeto o una lista. Tomamos el primer registro.
+        if (is_array($resp) && array_is_list($resp)) {
+            if (empty($resp[0]) || !is_array($resp[0])) {
+                throw new \RuntimeException('Customer no encontrado para el email proporcionado.');
+            }
+            return $this->customerDtoFromResponse($resp[0]);
+        }
+
+        if (is_array($resp)) {
+            return $this->customerDtoFromResponse($resp);
+        }
+
+        throw new \RuntimeException('Formato de respuesta inválido al consultar customer.');
+    }
+
+    // Customer - Buscar (GET /customer?...) y devolver respuesta cruda (lista u objeto)
+    public function searchCustomers(array $filters): array
+    {
+        // Soporta filtros del API: firstName,lastName,email,phone,isActive, etc.
+        $query = array_filter([
+            'firstName' => $filters['firstName'] ?? null,
+            'lastName'  => $filters['lastName'] ?? null,
+            'email'     => $filters['email'] ?? null,
+            'phone'     => $filters['phone'] ?? ($filters['phoneNumber'] ?? null),
+            'isActive'  => array_key_exists('isActive', $filters) ? $filters['isActive'] : null,
+        ], static fn ($v) => !is_null($v) && $v !== '');
+
+        return Http::withHeaders($this->headers)
+            ->get("{$this->baseUri}/customer", $query)
+            ->throw()
+            ->json();
+    }
+
+    // Customer - Actualizar (PUT /customer/{id})
+    public function updateCustomer(string $customerId, array $data): array
+    {
+        $payload = $this->normalizeCustomerPayload($data);
+
+        return Http::withHeaders($this->headers)
+            ->put("{$this->baseUri}/customer/{$customerId}", $payload)
+            ->throw()
+            ->json();
+    }
+
+    /**
+     * Compat: método viejo usado por el controller.
+     * Antes llamaba a /customers/create; ahora es un alias de createCustomer.
+     */
     public function createCustomerCountry(array $data): CustomerDto
     {
-         $data = Http::withHeaders($this->headers)->post("{$this->baseUri}/customers/create", [
-            'type' =>  'INDIVIDUAL',
-            'email' =>  $data['email'],
-            "phoneNumber" =>  $data['phoneNumber'],
-            'country' => $data['country'],
-        ])->throw()->json();
-
-        return new CustomerDto(
-            $data['customerId'],
-            $data['createdAt'],
-        );
+        return $this->createCustomer($data);
     }
 
     // 2. Listar requisitos KYC por país

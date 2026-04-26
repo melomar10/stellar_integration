@@ -6,6 +6,7 @@ use App\Models\Flows\StepByFlow;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Ramsey\Uuid\Uuid;
+
 class Client extends Model
 {
     use HasFactory;
@@ -20,6 +21,11 @@ class Client extends Model
         'has_account',
         'country',
         'status',
+        'alfred_account_id',
+    ];
+
+    protected $appends = [
+        'is_registered_in_alfred',
     ];
 
     public function generateUuid()
@@ -39,5 +45,15 @@ class Client extends Model
     public function waitingList()
     {
         return $this->hasMany(WaitingList::class);
+    }
+
+    public function alfredAccount()
+    {
+        return $this->belongsTo(AlfredAccount::class, 'alfred_account_id');
+    }
+
+    public function getIsRegisteredInAlfredAttribute(): bool
+    {
+        return !is_null($this->alfred_account_id);
     }
 }
