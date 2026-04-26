@@ -29,6 +29,7 @@ Route::prefix('bridge')->group(function () {
 });
 Route::prefix('alfred')->group(function () {
     Route::post('customers',                          [AlfredController::class, 'createCustomer']);
+    Route::post('create-client-alfred',               [AlfredController::class, 'createClienAlfred']);
     Route::get('kyc-requirements',                    [AlfredController::class, 'kycRequirements']);
     Route::post('customers/{id}/kyc',                 [AlfredController::class, 'addKycInfo']);
     Route::post('customers/{id}/kyc/{sub}/submit',    [AlfredController::class, 'submitKyc']);

@@ -148,6 +148,42 @@ class AlfredService
         return $this->createCustomer($data);
     }
 
+    public function KYC(string $customerId, array $fields, array $filePaths = []): array
+    {
+        // Para multipart NO se debe forzar Content-Type: application/json
+        $headers = $this->headers;
+        unset($headers['Content-Type']);
+        unset($headers['content-type']);
+
+        $multipart = [];
+        foreach ($fields as $key => $value) {
+            if (is_null($value)) {
+                continue;
+            }
+            if (is_bool($value)) {
+                $value = $value ? 'true' : 'false';
+            }
+            if (is_array($value) || is_object($value)) {
+                $value = json_encode($value);
+            }
+            $multipart[] = ['name' => (string) $key, 'contents' => (string) $value];
+        }
+
+        $req = Http::withHeaders($headers)->asMultipart();
+
+        foreach ($filePaths as $idx => $path) {
+            if (!is_string($path) || $path === '' || !is_file($path)) {
+                continue;
+            }
+            $req = $req->attach("file_{$idx}", fopen($path, 'r'));
+        }
+
+        return $req
+            ->post("{$this->baseUri}/kyc/customer/{$customerId}", $multipart)
+            ->throw()
+            ->json();
+    }
+
     // 2. Listar requisitos KYC por país
     public function getKycRequirements(string $country): array
     {
