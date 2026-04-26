@@ -10,12 +10,30 @@ class FlowService
      * Convierte cualquier flow (string JSON) en un array JSON manejable
      * Esta función es genérica y funciona con cualquier estructura de flow
      * 
-     * @param string $flowString String JSON del flow
+     * @param mixed $flowString String JSON del flow (o array/obj ya parseado)
      * @return array|null Array con todos los valores del flow parseados o null si hay error
      */
-    public function convertFlowToJson(string $flowString): ?array
+    public function convertFlowToJson(mixed $flowString): ?array
     {
         try {
+            // Si ya viene como array, ya está parseado
+            if (is_array($flowString)) {
+                return $flowString;
+            }
+
+            // Si viene como objeto (ej. stdClass), convertirlo a array
+            if (is_object($flowString)) {
+                return json_decode(json_encode($flowString), true);
+            }
+
+            // Si no es string, no se puede parsear
+            if (!is_string($flowString)) {
+                Log::warning('Flow inválido: tipo no soportado', [
+                    'decoded_type' => gettype($flowString),
+                ]);
+                return null;
+            }
+
             // Si el string está vacío, retornar null
             if (empty(trim($flowString))) {
                 Log::warning('Flow string vacío');
@@ -57,10 +75,10 @@ class FlowService
      * Parsea el string JSON del flow y retorna un array manejable
      * (Wrapper de convertFlowToJson para mantener compatibilidad)
      * 
-     * @param string $flowString String JSON del flow
+     * @param mixed $flowString String JSON del flow (o array/obj ya parseado)
      * @return array|null Array con los datos parseados o null si hay error
      */
-    public function parseFlow(string $flowString): ?array
+    public function parseFlow(mixed $flowString): ?array
     {
         return $this->convertFlowToJson($flowString);
     }
@@ -120,10 +138,10 @@ class FlowService
     /**
      * Procesa el flow completo y retorna los datos del cliente listos para crear
      * 
-     * @param string $flowString String JSON del flow
+     * @param mixed $flowString String JSON del flow (o array/obj ya parseado)
      * @return array|null Datos del cliente o null si hay error
      */
-    public function processFlow(string $flowString): ?array
+    public function processFlow(mixed $flowString): ?array
     {
         $flowData = $this->parseFlow($flowString);
         
