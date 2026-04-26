@@ -54,6 +54,6 @@ class Client extends Model
 
     public function getIsRegisteredInAlfredAttribute(): bool
     {
-        return is_null($this->alfred_account_id) ? 0 : 1;
+        return is_null($this->alfred_account_id) ? "false" : "true";
     }
 }
