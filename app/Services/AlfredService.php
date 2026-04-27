@@ -6,6 +6,7 @@ use App\Casts\CustomerDto;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Client\RequestException;
 
 class AlfredService
 {
@@ -73,6 +74,15 @@ class AlfredService
         return new CustomerDto((string) $id, (string) $createdAt);
     }
 
+    private function unwrapCustomerSearchResponse(mixed $resp): mixed
+    {
+        // El API nuevo puede devolver { items: [...], meta: {...} }
+        if (is_array($resp) && array_key_exists('items', $resp) && is_array($resp['items'])) {
+            return $resp['items'];
+        }
+        return $resp;
+    }
+
     // Customer - Crear (POST /customer)
     public function createCustomer(array $data): CustomerDto
     {
@@ -87,6 +97,29 @@ class AlfredService
         return $this->customerDtoFromResponse(is_array($resp) ? $resp : []);
     }
 
+    /**
+     * Crear customer devolviendo respuesta completa del API.
+     * Maneja 409 (ya existe) devolviendo ['_conflict' => true, ...].
+     */
+    public function createCustomerRaw(array $data): array
+    {
+        $payload = $this->normalizeCustomerPayload($data);
+
+        try {
+            return Http::withHeaders($this->headers)
+                ->post("{$this->baseUri}/customer", $payload)
+                ->throw()
+                ->json();
+        } catch (RequestException $e) {
+            $status = $e->response?->status();
+            if ($status === 409) {
+                $body = $e->response?->json();
+                return array_merge(['_conflict' => true], is_array($body) ? $body : []);
+            }
+            throw $e;
+        }
+    }
+
     // Customer - Obtener (GET /customer?...) y devolver el primer match como DTO
     public function GetCustomerByEmail(string $email): CustomerDto
     {
@@ -95,16 +128,18 @@ class AlfredService
             ->throw()
             ->json();
 
+        $unwrapped = $this->unwrapCustomerSearchResponse($resp);
+
         // El API podría devolver un objeto o una lista. Tomamos el primer registro.
-        if (is_array($resp) && array_is_list($resp)) {
-            if (empty($resp[0]) || !is_array($resp[0])) {
+        if (is_array($unwrapped) && array_is_list($unwrapped)) {
+            if (empty($unwrapped[0]) || !is_array($unwrapped[0])) {
                 throw new \RuntimeException('Customer no encontrado para el email proporcionado.');
             }
-            return $this->customerDtoFromResponse($resp[0]);
+            return $this->customerDtoFromResponse($unwrapped[0]);
         }
 
-        if (is_array($resp)) {
-            return $this->customerDtoFromResponse($resp);
+        if (is_array($unwrapped)) {
+            return $this->customerDtoFromResponse($unwrapped);
         }
 
         throw new \RuntimeException('Formato de respuesta inválido al consultar customer.');

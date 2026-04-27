@@ -38,7 +38,7 @@ class ClientController extends Controller
                 'last_name' => 'nullable|string|max:255',
                 'email' => 'nullable|email',
                 'phone' => 'required|string|max:20',
-                'card_number_id' => 'nullable|string|max:255'                
+                'card_number_id' => 'nullable|string|max:255'
             ]);
             // vamos a hacer la misma validacion para el $params['receiver_phone']
             $phone = preg_replace('/[^0-9]/', '', $request->phone);
@@ -46,14 +46,14 @@ class ClientController extends Controller
                 $phone = '1' . $phone;
             }
             $phone = preg_replace('/[^0-9]/', '', $phone);
-            
+
             //valida si el cliente existe con el mismo phone y retorna el cliente
             $client = Client::where('phone', $phone)->first();
-            
+
             if ($client) {
                 return response()->json($client);
             }
-            
+
             // Generar UUID automáticamente
             $request->merge(['uuid' => Uuid::uuid4()->toString()]);
 
@@ -62,7 +62,7 @@ class ClientController extends Controller
 
             $request->merge(['has_account' => false]);
             $request->merge(['country' => 'DO']);
-            
+
             $client = Client::create($request->all());
             $client->phone = $phone;
             $client->save();
@@ -82,7 +82,7 @@ class ClientController extends Controller
                 'message' => 'Error al crear el cliente: ' . $e->getMessage()
             ], 500);
         }
-    }   
+    }
 
     /**
      * Crear un nuevo cliente por flow
@@ -100,7 +100,7 @@ class ClientController extends Controller
 
             // Verificar si el cliente ya existe
             $client = Client::where('phone', $phone)->first();
-            
+
             if ($client) {
                 return response()->json([
                     'ok' => true,
@@ -111,7 +111,7 @@ class ClientController extends Controller
             // Procesar el flow usando FlowService
             $flowService = new FlowService();
             $flowData = $flowService->processFlow($request->flow);
-            
+
             if ($flowData === null) {
                 return response()->json([
                     'ok' => false,
@@ -269,13 +269,13 @@ class ClientController extends Controller
             }
 
             //valida si el cliente existe sin has_account y si es asi actualiza el cliente con los datos del servicio externo
-            
+
             // El cliente existe en el servicio externo, crear en la BD local
             $clientData = $domiPagoService->extractClientData($apiResponse, $phone);
-            
+
             // Generar UUID automáticamente
             $clientData['uuid'] = Uuid::uuid4()->toString();
-            
+
             $client = Client::where('phone', $phone)->where('has_account', false)->first();
             if ($client) {
                 $client->update($clientData);
@@ -384,7 +384,7 @@ class ClientController extends Controller
             }
             $phone = preg_replace('/[^0-9]/', '', $phone);
 
-            //valida si no trae el nombre 
+            //valida si no trae el nombre
             if (!$request->has('name')) {
                 $client->card_number_id = $request->card_number_id;
                 $client->save();
@@ -456,11 +456,11 @@ class ClientController extends Controller
         $dateFrom = $request->get('date_from');
         $dateTo = $request->get('date_to');
         $stepName = $request->get('step_name');
-        
+
         // Construir condiciones para el último step
         $hasDateFilter = !empty($dateFrom) || !empty($dateTo);
         $hasStepNameFilter = !empty($stepName);
-        
+
         if ($hasDateFilter || $hasStepNameFilter) {
             // Obtener clientes cuyo último step cumpla con los filtros
             $query->whereIn('id', function($subQuery) use ($dateFrom, $dateTo, $stepName) {
@@ -468,11 +468,11 @@ class ClientController extends Controller
                 $subQuery->select('client_id')
                          ->from('step_by_flows')
                          ->whereRaw('created_at = (
-                             SELECT MAX(created_at) 
-                             FROM step_by_flows as s2 
+                             SELECT MAX(created_at)
+                             FROM step_by_flows as s2
                              WHERE s2.client_id = step_by_flows.client_id
                          )');
-                
+
                 if (!empty($dateFrom)) {
                     $subQuery->whereDate('created_at', '>=', $dateFrom);
                 }
@@ -540,5 +540,9 @@ class ClientController extends Controller
             Log::error('Error al exportar clientes: ' . $e->getMessage());
             abort(500, 'Error al exportar los clientes: ' . $e->getMessage());
         }
+    }
+    public function receiveMessage(Request $request)
+    {
+        Log::info('Mensaje recibido', $request->all());
     }
 }

@@ -54,7 +54,7 @@ Route::prefix('client')->group(function () {
 
 Route::post('test-flow', [ClientController::class, 'testFlow']);
 
-//Endpoint Sirena 
+//Endpoint Sirena
 Route::prefix('sirena')->group(function () {
     Route::post('request-bonus', [SirenaController::class, 'requestBonus']);
    // Route::get('recharge-resume', [SirenaController::class, 'getRechargeResume']);
@@ -85,3 +85,6 @@ Route::prefix('flows')->group(function () {
     Route::get('client-step-by-flow', [StepByFlowController::class, 'getClientStepByFlows']);
     Route::get('client-step-by-flow/{clientId}', [StepByFlowController::class, 'getStepByFlowByClientId']);
 });
+
+
+Route::post('receive-message',[ClientController::class, 'receiveMessage']);

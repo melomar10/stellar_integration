@@ -58,14 +58,16 @@ class AlfredController extends Controller
     public function createCustomer(Request $req, AlfredService $alfred)
     {
         try {
-            $data = $req->validate([
-                'clientData' => 'required',
-                'clientPhone' => 'required|string',
-                'move_type' => 'required|string|in:Enviar,Recibir',
-            ]);
+            // Validación comentada por solicitud (evitar bloquear el flujo por ahora)
+            // $data = $req->validate([
+            //     'clientData' => 'required',
+            //     'clientPhone' => 'required|string',
+            //     'move_type' => 'required|string|in:Enviar,Recibir',
+            // ]);
+            $data = $req->all();
 
             $flowService = new FlowService();
-            $flowJson = $flowService->convertFlowToJson($data['clientData']);
+            $flowJson = $flowService->convertFlowToJson($data['clientData'] ?? null);
             Log::debug('flowJson', [$flowJson]);
             if (!$flowJson) {
                 return response()->json([
@@ -75,7 +77,15 @@ class AlfredController extends Controller
             }
 
             // Normalizar teléfono (misma lógica que ClientController)
-            $phone = preg_replace('/[^0-9]/', '', $data['clientPhone']);
+            $inputPhone = $data['clientPhone'] ?? ($flowJson['phoneNumber'] ?? ($flowJson['phone'] ?? null));
+            if (!$inputPhone) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'clientPhone es requerido',
+                ], 422);
+            }
+
+            $phone = preg_replace('/[^0-9]/', '', (string) $inputPhone);
             if (substr($phone, 0, 1) !== '1') {
                 $phone = '1' . $phone;
             }
@@ -93,23 +103,60 @@ class AlfredController extends Controller
                     'has_account' => false,
                     'country' => $flowJson['country'] ?? 'DO',
                 ]);
+            } else {
+                // Si ya existe localmente, sincroniza los datos base del flow
+                $client->name = $flowJson['firstName'] ?? $client->name;
+                $client->last_name = $flowJson['lastName'] ?? $client->last_name;
+                $client->email = $flowJson['email'] ?? $client->email;
+                $client->country = $flowJson['country'] ?? $client->country;
+                $client->save();
             }
             Log::debug('client created', [$client]);
-            // Crear customer en Alfred
-            $customerDto = $alfred->createCustomer([
+
+            // 1) Crear customer en Alfred primero.
+            // Si responde 409, buscamos el customer por phone y nos quedamos con items[0].
+            $createResp = $alfred->createCustomerRaw([
                 'firstName' => $flowJson['firstName'] ?? null,
                 'lastName' => $flowJson['lastName'] ?? null,
                 'email' => $flowJson['email'] ?? null,
-                'phone' => $flowJson['phoneNumber'] ?? ($flowJson['phone'] ?? $data['clientPhone']),
+                'phone' => $flowJson['phoneNumber'] ?? ($flowJson['phone'] ?? $inputPhone),
+                'address' => $flowJson['address'] ?? ($flowJson['streetAddress'] ?? null),
+                'city' => $flowJson['city'] ?? null,
                 'country' => $flowJson['country'] ?? null,
                 'postalCode' => $flowJson['postalCode'] ?? null,
                 'dateOfBirth' => $flowJson['dateOfBirth'] ?? null,
                 'isActive' => true,
-                'kycId' => $flowJson['kycId'] ?? null,
             ]);
-            Log::debug('customerDto', [$customerDto]);
+
+            if (!empty($createResp['_conflict'])) {
+                $search = $alfred->searchCustomers([
+                    'phone' => $flowJson['phoneNumber'] ?? ($flowJson['phone'] ?? $inputPhone),
+                    'isActive' => 'true',
+                ]);
+                $items = is_array($search) ? ($search['items'] ?? []) : [];
+                if (empty($items[0]) || !is_array($items[0])) {
+                    return response()->json([
+                        'ok' => false,
+                        'message' => 'El customer ya existe (409) pero no se pudo recuperar con la búsqueda por phone.',
+                        'alfred' => $search,
+                    ], 409);
+                }
+                $customer = $items[0];
+            } else {
+                $customer = $createResp;
+            }
+
+            $customerId = $customer['id'] ?? null;
+            if (!$customerId) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Respuesta inválida de Alfred: falta id del customer',
+                    'alfred' => $customer,
+                ], 500);
+            }
+
             // move_type -> on/off ramp + role
-            $moveType = $data['move_type'];
+            $moveType = $data['move_type'] ?? 'Enviar';
             if ($moveType === 'Enviar') {
                 $onRampCountry = 'US';
                 $offRampCountry = 'DO';
@@ -126,30 +173,30 @@ class AlfredController extends Controller
 
             // Guardar/actualizar AlfredAccount local
             $alfredAccount = AlfredAccount::updateOrCreate(
-                ['alfred_customer_id' => $customerDto->customerId],
+                ['alfred_customer_id' => (string) $customerId],
                 [
                     'first_name' => $flowJson['firstName'] ?? null,
                     'middle_name' => $flowJson['middleName'] ?? null,
                     'last_name' => $flowJson['lastName'] ?? null,
-                    'full_name' => trim(($flowJson['firstName'] ?? '') . ' ' . ($flowJson['lastName'] ?? '')) ?: null,
+                    'full_name' => $customer['fullName'] ?? (trim(($flowJson['firstName'] ?? '') . ' ' . ($flowJson['lastName'] ?? '')) ?: null),
                     'email' => $flowJson['email'] ?? null,
-                    'phone' => $flowJson['phoneNumber'] ?? ($flowJson['phone'] ?? null),
-                    'address' => $flowJson['address'] ?? null,
+                    'phone' => $customer['phone'] ?? ($flowJson['phoneNumber'] ?? ($flowJson['phone'] ?? null)),
+                    'address' => $customer['address'] ?? ($flowJson['address'] ?? null),
                     'residential_address' => $flowJson['residentialAddress'] ?? null,
                     'street_address' => $flowJson['streetAddress'] ?? null,
                     'street_address_line2' => $flowJson['streetAddressLine2'] ?? null,
-                    'city' => $flowJson['city'] ?? null,
+                    'city' => $customer['city'] ?? ($flowJson['city'] ?? null),
                     'state_province_region' => $flowJson['stateProvinceRegion'] ?? null,
-                    'country' => $flowJson['country'] ?? null,
-                    'postal_code' => $flowJson['postalCode'] ?? null,
+                    'country' => $customer['country'] ?? ($flowJson['country'] ?? null),
+                    'postal_code' => $customer['postalCode'] ?? ($flowJson['postalCode'] ?? null),
                     'preferred_language' => $flowJson['preferredLanguage'] ?? null,
                     'is_pep' => array_key_exists('isPep', $flowJson) ? filter_var($flowJson['isPep'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null,
                     'dni' => $flowJson['dni'] ?? null,
                     'national_id' => $flowJson['nationalId'] ?? null,
                     'cpf' => $flowJson['cpf'] ?? null,
                     'license_id' => $flowJson['licenseId'] ?? null,
-                    'gender' => $flowJson['gender'] ?? null,
-                    'date_of_birth' => $flowJson['dateOfBirth'] ?? null,
+                    'gender' => $customer['gender'] ?? ($flowJson['gender'] ?? null),
+                    'date_of_birth' => $customer['dateOfBirth'] ?? ($flowJson['dateOfBirth'] ?? null),
                     'place_of_birth' => $flowJson['placeOfBirth'] ?? null,
                     'main_nationality' => $flowJson['mainNationality'] ?? null,
                     'secondary_nationalities' => $flowJson['secondaryNationalities'] ?? null,
@@ -159,11 +206,13 @@ class AlfredController extends Controller
                     'off_ramp_country' => $offRampCountry,
                     'on_ramp_currency' => $onRampCurrency,
                     'off_ramp_currency' => $offRampCurrency,
-                    'is_active' => true,
+                    'is_active' => (bool) ($customer['isActive'] ?? true),
                     'extras' => $flowJson['extras'] ?? null,
                     'file_types' => $flowJson['fileTypes'] ?? null,
                     'files' => $flowJson['files'] ?? null,
-                    'alfred_created_at' => $customerDto->createdAt ?? null,
+                    'links' => $customer['_links'] ?? null,
+                    'alfred_created_at' => $customer['createdAt'] ?? null,
+                    'alfred_updated_at' => $customer['updatedAt'] ?? null,
                 ]
             );
             Log::debug('alfredAccount', [$alfredAccount]);
@@ -171,7 +220,7 @@ class AlfredController extends Controller
             $client->save();
             Log::debug('client saved', [$client]);
             // Ejecutar KYC (multipart)
-            $kycResponse = $alfred->KYC($customerDto->customerId, [
+            $kycResponse = $alfred->KYC((string) $customerId, [
                 'firstName' => $flowJson['firstName'] ?? null,
                 'middleName' => $flowJson['middleName'] ?? null,
                 'lastName' => $flowJson['lastName'] ?? null,
@@ -222,10 +271,10 @@ class AlfredController extends Controller
                 $alfredAccount->save();
 
                 try {
-                    $alfred->updateCustomer($customerDto->customerId, ['kycId' => (string) $kycId]);
+                    $alfred->updateCustomer((string) $customerId, ['kycId' => (string) $kycId]);
                 } catch (\Throwable $e) {
                     Log::warning('No se pudo actualizar customer con kycId', [
-                        'customerId' => $customerDto->customerId,
+                        'customerId' => $customerId,
                         'kycId' => $kycId,
                         'error' => $e->getMessage(),
                     ]);
@@ -236,7 +285,7 @@ class AlfredController extends Controller
                 'ok' => true,
                 'client' => $client->fresh()->load('alfredAccount'),
                 'alfred_account' => $alfredAccount,
-                'alfred_customer_id' => $customerDto->customerId,
+                'alfred_customer_id' => $customerId,
                 'kyc_id' => $kycId,
                 'kyc' => $kycResponse,
             ], 200);
