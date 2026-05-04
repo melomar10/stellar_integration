@@ -55,6 +55,7 @@ class AlfredController extends Controller
  *     )
  * )
  */
+
     public function createCustomer(Request $req, AlfredService $alfred)
     {
         try {
@@ -611,6 +612,258 @@ class AlfredController extends Controller
         ]);
 
         return response()->json($alfred->createOfframp($data));
+    }
+
+    public function showKycForm()
+    {
+        return view('alfred.kyc-form');
+    }
+
+    public function submitKycForm(Request $req, AlfredService $alfred)
+    {
+        try {
+            $data = $req->validate([
+                'firstName'              => 'required|string|max:100',
+                'middleName'             => 'nullable|string|max:100',
+                'lastName'               => 'required|string|max:100',
+                'email'                  => 'required|email|max:150',
+                'phoneNumber'            => 'required|string|max:30',
+                'dateOfBirth'            => 'nullable|date',
+                'placeOfBirth'           => 'nullable|string|max:150',
+                'gender'                 => 'nullable|string|in:Male,Female,Other',
+                'mainNationality'        => 'nullable|string|max:5',
+                'secondaryNationalities' => 'nullable|string|max:100',
+                'preferredLanguage'      => 'nullable|string|max:10',
+                'isPep'                  => 'nullable|string|in:true,false',
+                'streetAddress'          => 'nullable|string|max:255',
+                'streetAddressLine2'     => 'nullable|string|max:255',
+                'residentialAddress'     => 'nullable|string|max:255',
+                'city'                   => 'nullable|string|max:100',
+                'stateProvinceRegion'    => 'nullable|string|max:100',
+                'country'                => 'nullable|string|max:50',
+                'postalCode'             => 'nullable|string|max:20',
+                'nationalId'             => 'nullable|string|max:50',
+                'licenseId'              => 'nullable|string|max:50',
+                'dni'                    => 'nullable|string|max:50',
+                'cpf'                    => 'nullable|string|max:20',
+                'move_type'              => 'required|string|in:Enviar,Recibir',
+                'idFront'                => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+                'passport'               => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+            ]);
+
+            // Al menos un documento requerido
+            if (!$req->hasFile('idFront') && !$req->hasFile('passport')) {
+                return back()
+                    ->withErrors(['documents' => 'Debes subir al menos un documento de identidad (Cédula/ID o Pasaporte).'])
+                    ->withInput();
+            }
+
+            Log::debug('Alfred submitKycForm input', array_diff_key($data, ['idFront' => 1, 'passport' => 1]));
+
+            // Normalizar teléfono
+            $phone = preg_replace('/[^0-9]/', '', (string) $data['phoneNumber']);
+            if (substr($phone, 0, 1) !== '1') {
+                $phone = '1' . $phone;
+            }
+
+            // Crear o actualizar cliente local
+            $client = Client::where('phone', $phone)->first();
+            if (!$client) {
+                $client = Client::create([
+                    'name'       => $data['firstName'],
+                    'last_name'  => $data['lastName'],
+                    'email'      => $data['email'],
+                    'phone'      => $phone,
+                    'uuid'       => Uuid::uuid4()->toString(),
+                    'status'     => true,
+                    'has_account'=> false,
+                    'country'    => $data['country'] ?? 'DO',
+                ]);
+            } else {
+                $client->update([
+                    'name'      => $data['firstName'],
+                    'last_name' => $data['lastName'],
+                    'email'     => $data['email'],
+                    'country'   => $data['country'] ?? $client->country,
+                ]);
+            }
+            Log::debug('Alfred submitKycForm client', [$client->toArray()]);
+
+            // Buscar customer en Alfred por teléfono antes de intentar crear
+            $search = $alfred->searchCustomers(['phone' => $phone, 'isActive' => 'true']);
+            Log::debug('Alfred searchCustomers by phone', ['phone' => $phone, 'response' => $search]);
+            $existingItems = is_array($search) ? ($search['items'] ?? []) : [];
+
+            if (!empty($existingItems[0]) && is_array($existingItems[0])) {
+                $customer = $existingItems[0];
+                Log::debug('Alfred customer found (reusing)', ['id' => $customer['id'] ?? null]);
+            } else {
+                $createResp = $alfred->createCustomerRaw([
+                    'firstName'   => $data['firstName'],
+                    'lastName'    => $data['lastName'],
+                    'email'       => $data['email'],
+                    'phone'       => $phone,
+                    'address'     => $data['streetAddress'] ?? null,
+                    'city'        => $data['city']          ?? null,
+                    'country'     => $data['country']       ?? 'DO',
+                    'postalCode'  => $data['postalCode']    ?? null,
+                    'dateOfBirth' => $data['dateOfBirth']   ?? null,
+                    'isActive'    => true,
+                ]);
+                Log::debug('Alfred createCustomerRaw response', [$createResp]);
+                $customer = $createResp;
+            }
+
+            $customerId = $customer['id'] ?? null;
+            if (!$customerId) {
+                return back()
+                    ->withErrors(['documents' => 'No se obtuvo un ID de cliente de Alfred. Intenta de nuevo.'])
+                    ->withInput();
+            }
+
+            // Determinar parámetros ramp según move_type
+            $moveType = $data['move_type'];
+            if ($moveType === 'Enviar') {
+                $onRampCountry   = 'US'; $offRampCountry   = 'DO';
+                $onRampCurrency  = 'USD'; $offRampCurrency = 'DOP';
+                $role            = 'sender';
+            } else {
+                $onRampCountry   = 'DO'; $offRampCountry   = 'US';
+                $onRampCurrency  = 'DOP'; $offRampCurrency = 'USD';
+                $role            = 'receiver';
+            }
+
+            // Consultar estado KYC del customer (campos pendientes)
+            try {
+                $kycStatus = $alfred->getKycCustomerStatus((string) $customerId, [
+                    'onRampCountry'   => $onRampCountry,
+                    'offRampCountry'  => $offRampCountry,
+                    'onRampCurrency'  => $onRampCurrency,
+                    'offRampCurrency' => $offRampCurrency,
+                    'role'            => $role,
+                ]);
+                Log::debug('Alfred submitKycForm kycStatus', [$kycStatus]);
+            } catch (\Throwable $e) {
+                Log::warning('Alfred submitKycForm kycStatus failed (non-blocking)', ['error' => $e->getMessage()]);
+                $kycStatus = [];
+            }
+
+            // Almacenar archivos y armar array de rutas + fileTypes
+            $namedFiles = [];
+            $fileTypes  = [];
+            $fileFields = ['idFront' => 'idFront', 'passport' => 'passport'];
+            foreach ($fileFields as $inputName => $apiFieldName) {
+                if ($req->hasFile($inputName) && $req->file($inputName)->isValid()) {
+                    $path = $req->file($inputName)->store('kyc_tmp', 'local');
+                    $namedFiles[$apiFieldName] = storage_path("app/{$path}");
+                    $fileTypes[] = $apiFieldName === 'idFront' ? 'id_front' : 'passport';
+                    Log::debug("Alfred submitKycForm stored file [{$apiFieldName}]", ['path' => $namedFiles[$apiFieldName]]);
+                }
+            }
+
+            // Enviar KYC con todos los campos del API + archivos
+            $kycPayload = array_filter([
+                'firstName'              => $data['firstName'],
+                'middleName'             => $data['middleName']             ?? null,
+                'lastName'               => $data['lastName'],
+                'email'                  => $data['email'],
+                'phoneNumber'            => '+' . $phone,
+                'gender'                 => $data['gender']                 ?? null,
+                'dateOfBirth'            => $data['dateOfBirth']            ?? null,
+                'placeOfBirth'           => $data['placeOfBirth']           ?? null,
+                'mainNationality'        => $data['mainNationality']        ?? null,
+                'secondaryNationalities' => $data['secondaryNationalities'] ?? null,
+                'preferredLanguage'      => $data['preferredLanguage']      ?? null,
+                'isPep'                  => $data['isPep']                  ?? 'false',
+                'streetAddress'          => $data['streetAddress']          ?? null,
+                'streetAddressLine2'     => $data['streetAddressLine2']     ?? null,
+                'residentialAddress'     => $data['residentialAddress'] ?? ($data['streetAddress'] ?? null),
+                'city'                   => $data['city']                   ?? null,
+                'stateProvinceRegion'    => $data['stateProvinceRegion']    ?? null,
+                'country'                => $data['country']                ?? null,
+                'postalCode'             => $data['postalCode']             ?? null,
+                'nationalId'             => $data['nationalId']             ?? null,
+                'licenseId'              => $data['licenseId']              ?? null,
+                'dni'                    => $data['dni']                    ?? null,
+                'cpf'                    => $data['cpf']                    ?? null,
+                'onRampCountry'          => $onRampCountry,
+                'offRampCountry'         => $offRampCountry,
+                'onRampCurrency'         => $onRampCurrency,
+                'offRampCurrency'        => $offRampCurrency,
+                'role'                   => $role,
+                'emailVerified'          => 'false',
+                'phoneNumberVerified'    => 'false',
+                'fileTypes'              => implode(',', $fileTypes),
+                'files'                  => json_encode([new \stdClass()]),
+                'extras'                 => json_encode(['source' => 'kyc_form']),
+            ], static fn ($v) => !is_null($v) && $v !== '');
+
+            $kycResponse = $alfred->KYC((string) $customerId, $kycPayload, $namedFiles);
+
+            Log::debug('Alfred submitKycForm kycResponse', [$kycResponse]);
+
+            // Limpiar archivos temporales
+            foreach ($namedFiles as $path) {
+                @unlink($path);
+            }
+
+            // Guardar AlfredAccount
+            $alfredAccount = AlfredAccount::updateOrCreate(
+                ['alfred_customer_id' => (string) $customerId],
+                [
+                    'first_name'             => $data['firstName'],
+                    'middle_name'            => $data['middleName']          ?? null,
+                    'last_name'              => $data['lastName'],
+                    'email'                  => $data['email'],
+                    'phone'                  => $customer['phone']           ?? $data['phoneNumber'],
+                    'city'                   => $customer['city']            ?? ($data['city'] ?? null),
+                    'country'                => $customer['country']         ?? ($data['country'] ?? null),
+                    'postal_code'            => $customer['postalCode']      ?? ($data['postalCode'] ?? null),
+                    'gender'                 => $data['gender']              ?? null,
+                    'date_of_birth'          => $data['dateOfBirth']         ?? null,
+                    'place_of_birth'         => $data['placeOfBirth']        ?? null,
+                    'main_nationality'       => $data['mainNationality']     ?? null,
+                    'secondary_nationalities'=> $data['secondaryNationalities'] ?? null,
+                    'preferred_language'     => $data['preferredLanguage']   ?? null,
+                    'is_pep'                 => ($data['isPep'] ?? 'false') === 'true',
+                    'street_address'         => $data['streetAddress']       ?? null,
+                    'street_address_line2'   => $data['streetAddressLine2']  ?? null,
+                    'residential_address'    => $data['residentialAddress']  ?? null,
+                    'state_province_region'  => $data['stateProvinceRegion'] ?? null,
+                    'address'                => $data['streetAddress']       ?? null,
+                    'national_id'            => $data['nationalId']          ?? null,
+                    'license_id'             => $data['licenseId']           ?? null,
+                    'dni'                    => $data['dni']                 ?? null,
+                    'cpf'                    => $data['cpf']                 ?? null,
+                    'file_types'             => implode(',', $fileTypes),
+                    'move_type'              => $moveType,
+                    'role'                   => $role,
+                    'on_ramp_country'        => $onRampCountry,
+                    'off_ramp_country'       => $offRampCountry,
+                    'on_ramp_currency'       => $onRampCurrency,
+                    'off_ramp_currency'      => $offRampCurrency,
+                    'is_active'              => true,
+                    'kyc_id'                 => $kycResponse['kycId'] ?? ($kycResponse['id'] ?? null),
+                ]
+            );
+
+            $client->alfred_account_id = $alfredAccount->id;
+            $client->save();
+
+            return redirect()->route('alfred.kyc.form')
+                ->with('success', 'Verificación enviada correctamente. ID de cliente Alfred: ' . $customerId);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->withErrors($e->errors())->withInput();
+        } catch (\Throwable $e) {
+            Log::error('Alfred submitKycForm error', [
+                'message' => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
+            return back()
+                ->withErrors(['documents' => 'Error al procesar la verificación: ' . $e->getMessage()])
+                ->withInput();
+        }
     }
 
     public function createSupport(Request $req, AlfredService $alfred)

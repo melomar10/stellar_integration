@@ -7,10 +7,14 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\WaitingListController;
+use App\Http\Controllers\AlfredController;
 
 /*Route::get('/', function () {
     return view('welcome');
 });*/
+
+Route::get('/alfred/kyc', [AlfredController::class, 'showKycForm'])->name('alfred.kyc.form');
+Route::post('/alfred/kyc', [AlfredController::class, 'submitKycForm'])->name('alfred.kyc.submit');
 
 Route::get('/kyc/callback', [BridgeController::class, 'kycCallback'])
     ->name('bridge.kyc.callback');

@@ -183,7 +183,34 @@ class AlfredService
         return $this->createCustomer($data);
     }
 
-    public function KYC(string $customerId, array $fields, array $filePaths = []): array
+    /**
+     * Consulta el estado KYC de un customer y los campos pendientes.
+     * Endpoint: GET /kyc/customer?customerId=...&onRampCountry=...&...
+     */
+    public function getKycCustomerStatus(string $customerId, array $params = []): array
+    {
+        $query = array_filter([
+            'customerId'      => $customerId,
+            'onRampCountry'   => $params['onRampCountry']   ?? 'US',
+            'offRampCountry'  => $params['offRampCountry']  ?? 'DO',
+            'onRampCurrency'  => $params['onRampCurrency']  ?? 'USD',
+            'offRampCurrency' => $params['offRampCurrency'] ?? 'DOP',
+            'role'            => $params['role']            ?? 'sender',
+        ], static fn($v) => !is_null($v) && $v !== '');
+
+        Log::debug('Alfred getKycCustomerStatus request', $query);
+
+        $response = Http::withHeaders($this->headers)
+            ->get("{$this->baseUri}/kyc/customer", $query)
+            ->throw()
+            ->json();
+
+        Log::debug('Alfred getKycCustomerStatus response', is_array($response) ? $response : ['raw' => $response]);
+
+        return is_array($response) ? $response : [];
+    }
+
+    public function KYC(string $customerId, array $fields, array $namedFiles = []): array
     {
         // Para multipart NO se debe forzar Content-Type: application/json
         $headers = $this->headers;
@@ -204,19 +231,26 @@ class AlfredService
             $multipart[] = ['name' => (string) $key, 'contents' => (string) $value];
         }
 
+        Log::debug('Alfred KYC request fields', array_column($multipart, 'contents', 'name'));
+        Log::debug('Alfred KYC request files', array_keys($namedFiles));
+
         $req = Http::withHeaders($headers)->asMultipart();
 
-        foreach ($filePaths as $idx => $path) {
+        foreach ($namedFiles as $fieldName => $path) {
             if (!is_string($path) || $path === '' || !is_file($path)) {
                 continue;
             }
-            $req = $req->attach("file_{$idx}", fopen($path, 'r'));
+            $req = $req->attach((string) $fieldName, fopen($path, 'r'), basename($path));
         }
 
-        return $req
+        $response = $req
             ->post("{$this->baseUri}/kyc/customer/{$customerId}", $multipart)
             ->throw()
             ->json();
+
+        Log::debug('Alfred KYC response', is_array($response) ? $response : ['raw' => $response]);
+
+        return is_array($response) ? $response : [];
     }
 
     // 2. Listar requisitos KYC por país
