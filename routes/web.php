@@ -14,7 +14,10 @@ use App\Http\Controllers\AlfredController;
 });*/
 
 Route::get('/alfred/kyc', [AlfredController::class, 'showKycForm'])->name('alfred.kyc.form');
-Route::post('/alfred/kyc', [AlfredController::class, 'submitKycForm'])->name('alfred.kyc.submit');
+Route::post('/alfred/kyc/check-phone', [AlfredController::class, 'checkPhone'])->name('alfred.kyc.check-phone');
+Route::post('/alfred/kyc/create-client', [AlfredController::class, 'createClient'])->name('alfred.kyc.create-client');
+Route::post('/alfred/kyc/kyc-status', [AlfredController::class, 'getKycStatus'])->name('alfred.kyc.status');
+Route::post('/alfred/kyc/submit', [AlfredController::class, 'submitKycForm'])->name('alfred.kyc.submit');
 
 Route::get('/kyc/callback', [BridgeController::class, 'kycCallback'])
     ->name('bridge.kyc.callback');

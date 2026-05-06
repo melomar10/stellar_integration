@@ -210,40 +210,42 @@ class AlfredService
         return is_array($response) ? $response : [];
     }
 
-    public function KYC(string $customerId, array $fields, array $namedFiles = []): array
+    /**
+     * Envía el KYC como multipart.
+     * $filePaths es un array indexado de rutas absolutas; todos se envían bajo el campo 'files'.
+     */
+    public function KYC(string $customerId, array $fields, array $filePaths = []): array
     {
-        // Para multipart NO se debe forzar Content-Type: application/json
         $headers = $this->headers;
-        unset($headers['Content-Type']);
-        unset($headers['content-type']);
+        unset($headers['Content-Type'], $headers['content-type']);
 
         $multipart = [];
+
         foreach ($fields as $key => $value) {
-            if (is_null($value)) {
-                continue;
-            }
-            if (is_bool($value)) {
-                $value = $value ? 'true' : 'false';
-            }
-            if (is_array($value) || is_object($value)) {
-                $value = json_encode($value);
-            }
+            if (is_null($value)) continue;
+            if (is_bool($value))                  $value = $value ? 'true' : 'false';
+            if (is_array($value) || is_object($value)) $value = json_encode($value);
             $multipart[] = ['name' => (string) $key, 'contents' => (string) $value];
         }
 
-        Log::debug('Alfred KYC request fields', array_column($multipart, 'contents', 'name'));
-        Log::debug('Alfred KYC request files', array_keys($namedFiles));
-
-        $req = Http::withHeaders($headers)->asMultipart();
-
-        foreach ($namedFiles as $fieldName => $path) {
-            if (!is_string($path) || $path === '' || !is_file($path)) {
-                continue;
-            }
-            $req = $req->attach((string) $fieldName, fopen($path, 'r'), basename($path));
+        // Todos los archivos van bajo el campo 'files' según contrato del API de Alfred
+        foreach ($filePaths as $path) {
+            if (!is_string($path) || $path === '' || !is_file($path)) continue;
+            $multipart[] = [
+                'name'     => 'files',
+                'contents' => fopen($path, 'r'),
+                'filename' => basename($path),
+            ];
         }
 
-        $response = $req
+        Log::debug('Alfred KYC request fields', array_column(
+            array_filter($multipart, fn($p) => !is_resource($p['contents'])),
+            'contents', 'name'
+        ));
+        Log::debug('Alfred KYC request file count', ['count' => count($filePaths)]);
+
+        $response = Http::withHeaders($headers)
+            ->asMultipart()
             ->post("{$this->baseUri}/kyc/customer/{$customerId}", $multipart)
             ->throw()
             ->json();
