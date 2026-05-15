@@ -603,7 +603,9 @@ class AlfredService
             throw new \InvalidArgumentException('customerId es requerido.');
         }
 
-        $body = $this->filterBankDetailPayload($payload);
+        $body = $this->filterBankDetailPayload(
+            $this->fillBankDetailRequiredFields($payload, $payload)
+        );
 
         Log::info('Alfred POST bank-details', ['customerId' => $customerId]);
 
@@ -786,7 +788,7 @@ class AlfredService
      */
     private function bankDetailPayloadFromAccount(array $account): array
     {
-        return $this->filterBankDetailPayload([
+        $raw = [
             'type'              => $account['type'] ?? null,
             'accountNumber'     => $account['accountNumber'] ?? null,
             'accountType'       => $account['accountType'] ?? null,
@@ -804,7 +806,62 @@ class AlfredService
             'bic'               => $account['bic'] ?? null,
             'countryCode'       => $account['countryCode'] ?? null,
             'isDefault'         => (bool) ($account['isDefault'] ?? false),
-        ]);
+        ];
+
+        return $this->filterBankDetailPayload(
+            $this->fillBankDetailRequiredFields($raw, $account)
+        );
+    }
+
+    /**
+     * Alfred exige accountBankCode y accountAlias (mín. 1 carácter) en PUT/POST.
+     *
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $account
+     * @return array<string, mixed>
+     */
+    private function fillBankDetailRequiredFields(array $payload, array $account): array
+    {
+        $bankCode = trim((string) ($payload['accountBankCode'] ?? $account['accountBankCode'] ?? ''));
+        $payload['accountBankCode'] = $bankCode !== '' ? $bankCode : $this->defaultAccountBankCode($account);
+
+        $alias = trim((string) ($payload['accountAlias'] ?? $account['accountAlias'] ?? ''));
+        $payload['accountAlias'] = $alias !== '' ? $alias : $this->defaultAccountAlias($account);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $account
+     */
+    private function defaultAccountBankCode(array $account): string
+    {
+        return match (strtoupper((string) ($account['type'] ?? ''))) {
+            'ACH_DOM'  => 'ACH',
+            'BANK_USA' => 'US',
+            'SPEI'     => 'ES',
+            default    => 'GEN',
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $account
+     */
+    private function defaultAccountAlias(array $account): string
+    {
+        $name = trim((string) ($account['accountName'] ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
+
+        $number = trim((string) ($account['accountNumber'] ?? ''));
+        if ($number !== '') {
+            $suffix = strlen($number) > 4 ? substr($number, -4) : $number;
+
+            return 'Cuenta ' . $suffix;
+        }
+
+        return 'Cuenta';
     }
 
     /**
