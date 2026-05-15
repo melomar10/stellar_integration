@@ -19,6 +19,16 @@ Route::post('/alfred/kyc/create-client', [AlfredController::class, 'createClient
 Route::post('/alfred/kyc/kyc-status', [AlfredController::class, 'getKycStatus'])->name('alfred.kyc.status');
 Route::post('/alfred/kyc/submit', [AlfredController::class, 'submitKycForm'])->name('alfred.kyc.submit');
 
+Route::get('/alfred/cuentas/{phone}', [AlfredController::class, 'showBankDetailsForm'])
+    ->where('phone', '[0-9]+')
+    ->name('alfred.bank-details.form');
+Route::get('/alfred/cuentas/{phone}/nueva', [AlfredController::class, 'showBankDetailsCreateForm'])
+    ->where('phone', '[0-9]+')
+    ->name('alfred.bank-details.create-form');
+Route::post('/alfred/cuentas/load', [AlfredController::class, 'loadBankDetailsByPhone'])->name('alfred.bank-details.load');
+Route::post('/alfred/cuentas/set-default', [AlfredController::class, 'setDefaultBankDetail'])->name('alfred.bank-details.set-default');
+Route::post('/alfred/cuentas/create', [AlfredController::class, 'createBankDetail'])->name('alfred.bank-details.create');
+
 Route::get('/kyc/callback', [BridgeController::class, 'kycCallback'])
     ->name('bridge.kyc.callback');
 Route::get('/tos/{id}', [BridgeController::class, 'showTos'])

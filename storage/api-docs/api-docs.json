@@ -227,51 +227,27 @@
                 }
             }
         },
-        "/api/quote": {
+        "/api/alfred/kyc/status-by-phone": {
             "post": {
                 "tags": [
-                    "Quotes"
+                    "Alfred"
                 ],
-                "summary": "Crear una nueva cotización (Quote)",
-                "operationId": "createQuote",
+                "summary": "Consultar estado KYC por teléfono del cliente",
+                "description": "Normaliza el teléfono, resuelve el customer ID en Alfred y consulta el KYC usando siempre onRamp US/USD, offRamp DO/DOP y role sender.",
+                "operationId": "alfredKycStatusByPhone",
                 "requestBody": {
-                    "description": "Datos necesarios para crear una cotización",
                     "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "fromCurrency",
-                                    "toCurrency",
-                                    "paymentMethodType",
-                                    "chain",
-                                    "fromAmount"
+                                    "phone"
                                 ],
                                 "properties": {
-                                    "fromCurrency": {
+                                    "phone": {
+                                        "description": "Teléfono del cliente (se normaliza a formato con prefijo 1)",
                                         "type": "string",
-                                        "maxLength": 3,
-                                        "minLength": 3,
-                                        "example": "USD"
-                                    },
-                                    "toCurrency": {
-                                        "type": "string",
-                                        "maxLength": 3,
-                                        "minLength": 2,
-                                        "example": "DO"
-                                    },
-                                    "paymentMethodType": {
-                                        "type": "string",
-                                        "example": "BANK"
-                                    },
-                                    "chain": {
-                                        "type": "string",
-                                        "example": "XLM"
-                                    },
-                                    "fromAmount": {
-                                        "type": "number",
-                                        "format": "float",
-                                        "example": 100
+                                        "example": "8095551234"
                                     }
                                 },
                                 "type": "object"
@@ -281,26 +257,84 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Quote creada exitosamente",
+                        "description": "Consulta exitosa",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "properties": {
-                                        "quoteId": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "phone": {
                                             "type": "string",
-                                            "example": "quote_abc123"
+                                            "example": "18095551234"
                                         },
-                                        "fromAmount": {
-                                            "type": "number",
-                                            "example": 100
+                                        "customer_id": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "example": "597751fd-eaae-477f-9231-1cb147f179f8"
                                         },
-                                        "toAmount": {
-                                            "type": "number",
-                                            "example": 5700
+                                        "kyc_approved": {
+                                            "description": "true si status del KYC es approved",
+                                            "type": "boolean",
+                                            "example": true
                                         },
-                                        "rate": {
-                                            "type": "number",
-                                            "example": 57
+                                        "kyc_status": {
+                                            "type": "string",
+                                            "example": "approved",
+                                            "nullable": true
+                                        },
+                                        "kyc": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                },
+                                                "status": {
+                                                    "type": "string",
+                                                    "example": "approved"
+                                                },
+                                                "fullName": {
+                                                    "type": "string",
+                                                    "example": "Omar Martinez"
+                                                },
+                                                "statusVerifiedAt": {
+                                                    "type": "string",
+                                                    "format": "date-time"
+                                                },
+                                                "createdAt": {
+                                                    "type": "string",
+                                                    "format": "date-time"
+                                                },
+                                                "updatedAt": {
+                                                    "type": "string",
+                                                    "format": "date-time"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Cliente no encontrado o sin customer ID en Alfred",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "phone": {
+                                            "type": "string"
                                         }
                                     },
                                     "type": "object"
@@ -314,9 +348,13 @@
                             "application/json": {
                                 "schema": {
                                     "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
                                         "message": {
                                             "type": "string",
-                                            "example": "Los datos enviados no son válidos"
+                                            "example": "Error de validación"
                                         },
                                         "errors": {
                                             "type": "object"
@@ -327,25 +365,361 @@
                             }
                         }
                     },
-                    "500": {
-                        "description": "Error interno del servidor",
+                    "502": {
+                        "description": "Error al consultar el API de Alfred",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
                                         "message": {
-                                            "type": "string",
-                                            "example": "Error al Crear la Quote"
+                                            "type": "string"
                                         },
                                         "error": {
-                                            "type": "string",
-                                            "example": "Detalle del error"
+                                            "type": "string"
                                         }
                                     },
                                     "type": "object"
                                 }
                             }
                         }
+                    }
+                }
+            }
+        },
+        "/api/alfred/quotes": {
+            "post": {
+                "tags": [
+                    "Alfred"
+                ],
+                "summary": "Crear cotización por customerId (quote en estado pending)",
+                "operationId": "alfredCreateQuote",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "customerId"
+                                ],
+                                "properties": {
+                                    "customerId": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "example": "550e8400-e29b-41d4-a716-446655440004"
+                                    },
+                                    "amount": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 100
+                                    },
+                                    "fromAmount": {
+                                        "description": "Alias de amount",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 100
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Quote creada",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "quote": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validación"
+                    },
+                    "500": {
+                        "description": "Error del servidor"
+                    }
+                }
+            }
+        },
+        "/api/alfred/quotes/by-phone": {
+            "post": {
+                "tags": [
+                    "Alfred"
+                ],
+                "summary": "Crear cotización por teléfono (quote en estado pending)",
+                "description": "Crea quote por teléfono: resuelve customerId, llama POST /quotes y guarda en estado pending.",
+                "operationId": "alfredCreateQuoteByPhone",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "phone",
+                                    "amount"
+                                ],
+                                "properties": {
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "8095551234"
+                                    },
+                                    "amount": {
+                                        "description": "Monto en USD a cotizar",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 100
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Quote creada y guardada como pending",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "phone": {
+                                            "type": "string"
+                                        },
+                                        "customer_id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "quote": {
+                                            "properties": {
+                                                "quote_id": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                },
+                                                "status": {
+                                                    "type": "string",
+                                                    "example": "pending"
+                                                },
+                                                "from_amount": {
+                                                    "type": "number",
+                                                    "example": 100
+                                                },
+                                                "rate": {
+                                                    "type": "string"
+                                                },
+                                                "to_amount": {
+                                                    "type": "string"
+                                                },
+                                                "expiration": {
+                                                    "type": "integer"
+                                                },
+                                                "on_ramp_external_quote_id": {
+                                                    "type": "string"
+                                                },
+                                                "off_ramp_external_quote_id": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Cliente no encontrado"
+                    },
+                    "422": {
+                        "description": "Validación"
+                    },
+                    "502": {
+                        "description": "Error al consultar Alfred"
+                    }
+                }
+            }
+        },
+        "/api/alfred/orders": {
+            "post": {
+                "tags": [
+                    "Alfred"
+                ],
+                "summary": "Crear orden por teléfonos del remitente y destinatario",
+                "description": "Busca la última quote pending del sender y los customerId por teléfono.",
+                "operationId": "alfredCreateOrder",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "phone_sender",
+                                    "phone_receiver"
+                                ],
+                                "properties": {
+                                    "phone_sender": {
+                                        "type": "string",
+                                        "example": "16466696038"
+                                    },
+                                    "phone_receiver": {
+                                        "type": "string",
+                                        "example": "18095551234"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Orden creada; quote marcada como completed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "order_id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "quote_id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "total_amount": {
+                                            "type": "string",
+                                            "example": "10.00"
+                                        },
+                                        "currency": {
+                                            "type": "string",
+                                            "example": "USD"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validación"
+                    },
+                    "404": {
+                        "description": "Cliente, quote u orden no encontrada"
+                    },
+                    "502": {
+                        "description": "Error Alfred"
+                    }
+                }
+            }
+        },
+        "/api/alfred/orders/confirm-by-phone": {
+            "post": {
+                "tags": [
+                    "Alfred"
+                ],
+                "summary": "Confirmar orden pendiente por teléfono del remitente",
+                "description": "Busca la última orden con api_status pending del sender y devuelve paymentInstructions (ACH).",
+                "operationId": "alfredConfirmOrderByPhone",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "phone"
+                                ],
+                                "properties": {
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "16466696038"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Instrucciones de pago del sender",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "phone": {
+                                            "type": "string"
+                                        },
+                                        "order_id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "payment_method": {
+                                            "type": "string",
+                                            "example": "ach_push"
+                                        },
+                                        "payment_instructions": {
+                                            "properties": {
+                                                "amount": {
+                                                    "type": "string",
+                                                    "example": "11.00"
+                                                },
+                                                "bankName": {
+                                                    "type": "string"
+                                                },
+                                                "currency": {
+                                                    "type": "string"
+                                                },
+                                                "bankAccount": {
+                                                    "type": "string"
+                                                },
+                                                "depositMessage": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Sin orden pendiente o sin customer"
+                    },
+                    "422": {
+                        "description": "Validación"
+                    },
+                    "502": {
+                        "description": "Error Alfred"
                     }
                 }
             }
@@ -869,6 +1243,92 @@
                 }
             }
         },
+        "/api/alfred/customer/{customerId}/bank-details": {
+            "get": {
+                "tags": [
+                    "Alfred"
+                ],
+                "summary": "Listar cuentas bancarias del customer",
+                "operationId": "alfredGetBankDetails",
+                "parameters": [
+                    {
+                        "name": "customerId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Lista de cuentas"
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Alfred"
+                ],
+                "summary": "Registrar cuenta bancaria",
+                "operationId": "alfredCreateBankDetail",
+                "parameters": [
+                    {
+                        "name": "customerId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "type",
+                                    "accountNumber",
+                                    "accountType",
+                                    "accountName"
+                                ],
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "example": "ACH_DOM"
+                                    },
+                                    "accountNumber": {
+                                        "type": "string"
+                                    },
+                                    "accountType": {
+                                        "type": "string",
+                                        "example": "CORRIENTE"
+                                    },
+                                    "accountName": {
+                                        "type": "string"
+                                    },
+                                    "countryCode": {
+                                        "type": "string",
+                                        "example": "DO"
+                                    },
+                                    "isDefault": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Cuenta creada"
+                    }
+                }
+            }
+        },
         "/api/bridge/customers": {
             "post": {
                 "tags": [
@@ -1164,8 +1624,8 @@
             "description": "Customer"
         },
         {
-            "name": "Quotes",
-            "description": "Quotes"
+            "name": "Alfred",
+            "description": "Alfred"
         },
         {
             "name": "Payment Methods",
@@ -1174,10 +1634,6 @@
         {
             "name": "Offramp",
             "description": "Offramp"
-        },
-        {
-            "name": "Alfred",
-            "description": "Alfred"
         },
         {
             "name": "bridge",

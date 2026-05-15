@@ -6,6 +6,7 @@ use App\Models\AlfredAccount;
 use App\Models\Client;
 use App\Services\AlfredService;
 use App\Services\FlowService;
+use App\Services\WasapiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -317,6 +318,139 @@ class AlfredController extends Controller
         return response()->json($alfred->getKycRequirements($country));
     }
 
+    /**
+     * Busca el customer de Alfred por teléfono local y consulta GET /kyc/customer/{id}/status.
+     *
+     * Solo se envía `phone` en el body. Los parámetros de rampa son fijos: US/DO, USD/DOP, role sender.
+     *
+     * @OA\Post(
+     *     path="/api/alfred/kyc/status-by-phone",
+     *     summary="Consultar estado KYC por teléfono del cliente",
+     *     description="Normaliza el teléfono, resuelve el customer ID en Alfred y consulta el KYC usando siempre onRamp US/USD, offRamp DO/DOP y role sender.",
+     *     operationId="alfredKycStatusByPhone",
+     *     tags={"Alfred"},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"phone"},
+     *             @OA\Property(property="phone", type="string", example="8095551234", description="Teléfono del cliente (se normaliza a formato con prefijo 1)")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Consulta exitosa",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="ok", type="boolean", example=true),
+     *             @OA\Property(property="phone", type="string", example="18095551234"),
+     *             @OA\Property(property="customer_id", type="string", format="uuid", example="597751fd-eaae-477f-9231-1cb147f179f8"),
+     *             @OA\Property(property="kyc_approved", type="boolean", example=true, description="true si status del KYC es approved"),
+     *             @OA\Property(property="kyc_status", type="string", example="approved", nullable=true),
+     *             @OA\Property(
+     *                 property="kyc",
+     *                 type="object",
+     *                 @OA\Property(property="id", type="string", format="uuid"),
+     *                 @OA\Property(property="status", type="string", example="approved"),
+     *                 @OA\Property(property="fullName", type="string", example="Omar Martinez"),
+     *                 @OA\Property(property="statusVerifiedAt", type="string", format="date-time"),
+     *                 @OA\Property(property="createdAt", type="string", format="date-time"),
+     *                 @OA\Property(property="updatedAt", type="string", format="date-time")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Cliente no encontrado o sin customer ID en Alfred",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="ok", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string"),
+     *             @OA\Property(property="phone", type="string")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Error de validación",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="ok", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Error de validación"),
+     *             @OA\Property(property="errors", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=502,
+     *         description="Error al consultar el API de Alfred",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="ok", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string"),
+     *             @OA\Property(property="error", type="string")
+     *         )
+     *     )
+     * )
+     */
+    public function kycStatusByPhone(Request $req, AlfredService $alfred)
+    {
+        try {
+            $data = $req->validate([
+                'phone' => 'required|string|min:7',
+            ]);
+
+            $raw   = preg_replace('/[^0-9]/', '', (string) $data['phone']);
+            $phone = substr($raw, 0, 1) !== '1' ? '1' . $raw : $raw;
+
+            $client = Client::where('phone', $phone)->with('alfredAccount')->first();
+            $alfredAccount = $client?->alfredAccount;
+            if (!$alfredAccount) {
+                $alfredAccount = AlfredAccount::where('phone', $phone)->first();
+            }
+
+            if (!$alfredAccount || empty($alfredAccount->alfred_customer_id)) {
+                return response()->json([
+                    'ok'      => false,
+                    'message' => 'No se encontró un cliente con ese teléfono o aún no tiene cuenta vinculada en Alfred (falta customer ID).',
+                    'phone'   => $phone,
+                ], 404);
+            }
+
+            $customerId = (string) $alfredAccount->alfred_customer_id;
+
+            $params = [
+                'onRampCountry'   => 'US',
+                'offRampCountry'  => 'DO',
+                'onRampCurrency'  => 'USD',
+                'offRampCurrency' => 'DOP',
+                'role'            => 'sender',
+            ];
+
+            Log::debug('Alfred kycStatusByPhone', ['phone' => $phone, 'customerId' => $customerId, 'params' => $params]);
+
+            $kyc = $alfred->getKycCustomerStatus($customerId, $params);
+
+            $status = is_array($kyc) ? ($kyc['status'] ?? null) : null;
+            $approved = is_string($status) && strcasecmp($status, 'approved') === 0;
+
+            return response()->json([
+                'ok'           => true,
+                'phone'        => $phone,
+                'customer_id'  => $customerId,
+                'kyc_approved' => $approved,
+                'kyc_status'   => $status,
+                'kyc'          => $kyc,
+            ], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Error de validación',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('Alfred kycStatusByPhone', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return response()->json([
+                'ok'      => false,
+                'message' => 'No se pudo consultar el estado KYC en Alfred.',
+                'error'   => $e->getMessage(),
+            ], 502);
+        }
+    }
+
     public function addKycInfo(Request $req, AlfredService $alfred, $id)
     {
         $kyc = $req->validate([ /* reglas según requirements */]);
@@ -327,77 +461,315 @@ class AlfredController extends Controller
     {
         return response()->json($alfred->submitKyc($id, $sub));
     }
-/**
- * @OA\Post(
- *     path="/api/quote",
- *     summary="Crear una nueva cotización (Quote)",
- *     operationId="createQuote",
- *     tags={"Quotes"},
- *     @OA\RequestBody(
- *         required=true,
- *         description="Datos necesarios para crear una cotización",
- *         @OA\JsonContent(
- *             required={"fromCurrency", "toCurrency", "paymentMethodType", "chain", "fromAmount"},
- *             @OA\Property(property="fromCurrency", type="string", example="USD", minLength=3, maxLength=3),
- *             @OA\Property(property="toCurrency", type="string", example="DO", minLength=2, maxLength=3),
- *             @OA\Property(property="paymentMethodType", type="string", example="BANK"),
- *             @OA\Property(property="chain", type="string", example="XLM"),
- *             @OA\Property(property="fromAmount", type="number", format="float", example=100)
- *         )
- *     ),
- *     @OA\Response(
- *         response=200,
- *         description="Quote creada exitosamente",
- *         @OA\JsonContent(
- *             @OA\Property(property="quoteId", type="string", example="quote_abc123"),
- *             @OA\Property(property="fromAmount", type="number", example=100),
- *             @OA\Property(property="toAmount", type="number", example=5700),
- *             @OA\Property(property="rate", type="number", example=57.0)
- *         )
- *     ),
- *     @OA\Response(
- *         response=422,
- *         description="Error de validación",
- *         @OA\JsonContent(
- *             @OA\Property(property="message", type="string", example="Los datos enviados no son válidos"),
- *             @OA\Property(property="errors", type="object")
- *         )
- *     ),
- *     @OA\Response(
- *         response=500,
- *         description="Error interno del servidor",
- *         @OA\JsonContent(
- *             @OA\Property(property="message", type="string", example="Error al Crear la Quote"),
- *             @OA\Property(property="error", type="string", example="Detalle del error")
- *         )
- *     )
- * )
- */
+    /**
+     * @OA\Post(
+     *     path="/api/alfred/quotes",
+     *     summary="Crear cotización por customerId (quote en estado pending)",
+     *     operationId="alfredCreateQuote",
+     *     tags={"Alfred"},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"customerId"},
+     *             @OA\Property(property="customerId", type="string", format="uuid", example="550e8400-e29b-41d4-a716-446655440004"),
+     *             @OA\Property(property="amount", type="number", format="float", example=100),
+     *             @OA\Property(property="fromAmount", type="number", format="float", example=100, description="Alias de amount")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Quote creada",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="ok", type="boolean", example=true),
+     *             @OA\Property(property="quote", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(response=422, description="Validación"),
+     *     @OA\Response(response=500, description="Error del servidor")
+     * )
+     */
     public function createQuote(Request $req, AlfredService $alfred)
     {
-        try{
-            $req->merge([
-                'fromCurrency'       => $req->input('fromCurrency', 'USD'),
-                'toCurrency'         => $req->input('toCurrency', 'DO'),
-                'paymentMethodType'  => $req->input('paymentMethodType', 'BANK'),
-                'chain'              => $req->input('chain', 'DO'),
-            ]);
-
+        try {
             $data = $req->validate([
-                'fromCurrency'       => 'required|string|size:3',
-                'toCurrency'         => 'required|string|size:3',
-                'paymentMethodType'  => 'required|string|max:20',
-                'chain'              => 'required|string|max:10',
-                'fromAmount'         => 'required|numeric|min:10|max:1000', // Min 10, Max 1000 USDT
+                'customerId' => 'required|string|max:64',
+                'fromAmount' => 'required_without:amount|nullable|numeric|min:0.01|max:1000000',
+                'amount'     => 'required_without:fromAmount|nullable|numeric|min:0.01|max:1000000',
             ]);
 
-           $dto = $alfred->createQuote($data);
-           return response()->json((array) $dto, 200);
-        }catch (\Exception $e) {
+            $amt = $data['fromAmount'] ?? $data['amount'];
+            $quote = $alfred->createTransferQuote($data['customerId'], (float) $amt);
+
+            return response()->json([
+                'ok'    => true,
+                'quote' => $quote,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error al crear la quote',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Crea quote por teléfono: resuelve customerId, llama POST /quotes y guarda en estado pending.
+     *
+     * @OA\Post(
+     *     path="/api/alfred/quotes/by-phone",
+     *     summary="Crear cotización por teléfono (quote en estado pending)",
+     *     operationId="alfredCreateQuoteByPhone",
+     *     tags={"Alfred"},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"phone", "amount"},
+     *             @OA\Property(property="phone", type="string", example="8095551234"),
+     *             @OA\Property(property="amount", type="number", format="float", example=100, description="Monto en USD a cotizar")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Quote creada y guardada como pending",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="ok", type="boolean", example=true),
+     *             @OA\Property(property="phone", type="string"),
+     *             @OA\Property(property="customer_id", type="string", format="uuid"),
+     *             @OA\Property(
+     *                 property="quote",
+     *                 type="object",
+     *                 @OA\Property(property="quote_id", type="string", format="uuid"),
+     *                 @OA\Property(property="status", type="string", example="pending"),
+     *                 @OA\Property(property="from_amount", type="number", example=100),
+     *                 @OA\Property(property="rate", type="string"),
+     *                 @OA\Property(property="to_amount", type="string"),
+     *                 @OA\Property(property="expiration", type="integer"),
+     *                 @OA\Property(property="on_ramp_external_quote_id", type="string"),
+     *                 @OA\Property(property="off_ramp_external_quote_id", type="string")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=404, description="Cliente no encontrado"),
+     *     @OA\Response(response=422, description="Validación"),
+     *     @OA\Response(response=502, description="Error al consultar Alfred")
+     * )
+     */
+    public function createQuoteByPhone(Request $req, AlfredService $alfred)
+    {
+        try {
+            $data = $req->validate([
+                'phone'  => 'required|string|min:7',
+                'amount' => 'required|numeric|min:0.01|max:1000000',
+            ]);
+
+            $resolved = $this->resolveAlfredCustomerByPhone((string) $data['phone']);
+            if ($resolved === null) {
+                $raw   = preg_replace('/[^0-9]/', '', (string) $data['phone']);
+                $phone = substr($raw, 0, 1) !== '1' ? '1' . $raw : $raw;
+
                 return response()->json([
-                    'message' => 'Error al Crear la Quote',
-                    'error' => $e->getMessage(),
-                ], 500);
+                    'ok'      => false,
+                    'message' => 'No se encontró un cliente con ese teléfono o no tiene customer ID en Alfred.',
+                    'phone'   => $phone,
+                ], 404);
+            }
+
+            $amt = (float) $data['amount'];
+            $quote = $alfred->createTransferQuote($resolved['customer_id'], $amt);
+            Log::debug('Alfred createQuoteByPhone', ['quote' => $quote]);
+            return response()->json([
+                'ok'          => true,
+                'phone'       => $resolved['phone'],
+                'customer_id' => $resolved['customer_id'],
+                'quote'       => $quote,
+            ], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Error de validación',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('Alfred createQuoteByPhone', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+
+            return response()->json([
+                'ok'      => false,
+                'message' => 'No se pudo crear la cotización en Alfred.',
+                'error'   => $e->getMessage(),
+            ], 502);
+        }
+    }
+
+    /**
+     * @return array{phone: string, customer_id: string}|null
+     */
+    private function resolveAlfredCustomerByPhone(string $inputPhone): ?array
+    {
+        $raw   = preg_replace('/[^0-9]/', '', $inputPhone);
+        $phone = substr($raw, 0, 1) !== '1' ? '1' . $raw : $raw;
+
+        $client = Client::where('phone', $phone)->with('alfredAccount')->first();
+        $alfredAccount = $client?->alfredAccount;
+        if (!$alfredAccount) {
+            $alfredAccount = AlfredAccount::where('phone', $phone)->first();
+        }
+
+        if (!$alfredAccount || empty($alfredAccount->alfred_customer_id)) {
+            return null;
+        }
+
+        return [
+            'phone'        => $phone,
+            'customer_id'  => (string) $alfredAccount->alfred_customer_id,
+        ];
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/alfred/orders",
+     *     summary="Crear orden por teléfonos del remitente y destinatario",
+     *     description="Busca la última quote pending del sender y los customerId por teléfono.",
+     *     operationId="alfredCreateOrder",
+     *     tags={"Alfred"},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"phone_sender", "phone_receiver"},
+     *             @OA\Property(property="phone_sender", type="string", example="16466696038"),
+     *             @OA\Property(property="phone_receiver", type="string", example="18095551234")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Orden creada; quote marcada como completed",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="ok", type="boolean", example=true),
+     *             @OA\Property(property="order_id", type="string", format="uuid"),
+     *             @OA\Property(property="quote_id", type="string", format="uuid"),
+     *             @OA\Property(property="total_amount", type="string", example="10.00"),
+     *             @OA\Property(property="currency", type="string", example="USD")
+     *         )
+     *     ),
+     *     @OA\Response(response=422, description="Validación"),
+     *     @OA\Response(response=404, description="Cliente, quote u orden no encontrada"),
+     *     @OA\Response(response=502, description="Error Alfred")
+     * )
+     */
+    public function createOrder(Request $req, AlfredService $alfred)
+    {
+        try {
+            $data = $req->validate([
+                'phone_sender'   => 'required|string|min:7',
+                'phone_receiver' => 'required|string|min:7',
+            ]);
+
+            $result = $alfred->createOrderByPhones(
+                $data['phone_sender'],
+                $data['phone_receiver']
+            );
+
+            return response()->json([
+                'ok'           => true,
+                'order_id'     => $result['order_id'],
+                'quote_id'     => $result['quote_id'],
+                'total_amount' => $result['total_amount'],
+                'currency'     => $result['currency'],
+            ], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Error de validación',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'ok'      => false,
+                'message' => $e->getMessage(),
+            ], 404);
+        } catch (\Throwable $e) {
+            Log::error('Alfred createOrder', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+
+            return response()->json([
+                'ok'      => false,
+                'message' => 'No se pudo crear la orden en Alfred.',
+                'error'   => $e->getMessage(),
+            ], 502);
+        }
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/alfred/orders/confirm-by-phone",
+     *     summary="Confirmar orden pendiente por teléfono del remitente",
+     *     description="Busca la última orden con api_status pending del sender y devuelve paymentInstructions (ACH).",
+     *     operationId="alfredConfirmOrderByPhone",
+     *     tags={"Alfred"},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"phone"},
+     *             @OA\Property(property="phone", type="string", example="16466696038")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Instrucciones de pago del sender",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="ok", type="boolean", example=true),
+     *             @OA\Property(property="phone", type="string"),
+     *             @OA\Property(property="order_id", type="string", format="uuid"),
+     *             @OA\Property(property="payment_method", type="string", example="ach_push"),
+     *             @OA\Property(
+     *                 property="payment_instructions",
+     *                 type="object",
+     *                 @OA\Property(property="amount", type="string", example="11.00"),
+     *                 @OA\Property(property="bankName", type="string"),
+     *                 @OA\Property(property="currency", type="string"),
+     *                 @OA\Property(property="bankAccount", type="string"),
+     *                 @OA\Property(property="depositMessage", type="string")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=404, description="Sin orden pendiente o sin customer"),
+     *     @OA\Response(response=422, description="Validación"),
+     *     @OA\Response(response=502, description="Error Alfred")
+     * )
+     */
+    public function confirmOrderByPhone(Request $req, AlfredService $alfred)
+    {
+        try {
+            $data = $req->validate([
+                'phone' => 'required|string|min:7',
+            ]);
+
+            $result = $alfred->confirmOrderByPhone($data['phone']);
+
+            return response()->json([
+                'ok'                   => true,
+                'phone'                => $result['phone'],
+                'order_id'             => $result['order_id'],
+                'payment_method'       => $result['payment_method'],
+                'payment_instructions' => $result['payment_instructions'],
+            ], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Error de validación',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'ok'      => false,
+                'message' => $e->getMessage(),
+            ], 404);
+        } catch (\Throwable $e) {
+            Log::error('Alfred confirmOrderByPhone', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+
+            return response()->json([
+                'ok'      => false,
+                'message' => 'No se pudieron obtener las instrucciones de la orden.',
+                'error'   => $e->getMessage(),
+            ], 502);
         }
     }
 
@@ -784,7 +1156,7 @@ class AlfredController extends Controller
         }
     }
 
-    public function submitKycForm(Request $req, AlfredService $alfred)
+    public function submitKycForm(Request $req, AlfredService $alfred, WasapiService $wasapi)
     {
         try {
             $req->validate([
@@ -917,11 +1289,14 @@ class AlfredController extends Controller
                 Log::debug('Alfred submitKycForm alfredAccount updated', ['id' => $alfredAccount->id]);
             }
 
+            $whatsappSent = $this->sendWasapiKycCompleteNotice($req, $wasapi, $customerId, $alfredAccount);
+
             return response()->json([
-                'success'     => true,
-                'kyc_id'      => $kycId,
-                'customer_id' => $customerId,
-                'kyc'         => $kycResponse,
+                'success'         => true,
+                'kyc_id'          => $kycId,
+                'customer_id'     => $customerId,
+                'kyc'             => $kycResponse,
+                'whatsapp_sent'   => $whatsappSent,
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json(['success' => false, 'errors' => $e->errors()], 422);
@@ -929,6 +1304,44 @@ class AlfredController extends Controller
             Log::error('Alfred submitKycForm error', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
+    }
+
+    private function sendWasapiKycCompleteNotice(Request $req, WasapiService $wasapi, string $customerId, ?AlfredAccount $alfredAccount): bool
+    {
+        $account = $alfredAccount;
+        if (!$account) {
+            $account = AlfredAccount::where('alfred_customer_id', $customerId)->first();
+        } else {
+            $account->refresh();
+        }
+
+        $phoneDigits = '';
+        if ($account?->phone) {
+            $phoneDigits = preg_replace('/\D/', '', (string) $account->phone) ?? '';
+        }
+        if ($phoneDigits === '') {
+            $phoneDigits = preg_replace('/\D/', '', (string) $req->input('phoneNumber', '')) ?? '';
+        }
+        if ($phoneDigits === '' && $account) {
+            $client = Client::where('alfred_account_id', $account->id)->first();
+            if ($client?->phone) {
+                $phoneDigits = preg_replace('/\D/', '', (string) $client->phone) ?? '';
+            }
+        }
+
+        if ($phoneDigits === '') {
+            Log::warning('Alfred KYC completado: sin teléfono para Wasapi', ['customer_id' => $customerId]);
+
+            return false;
+        }
+
+        if (strlen($phoneDigits) >= 10 && ! str_starts_with($phoneDigits, '1')) {
+            $phoneDigits = '1'.$phoneDigits;
+        }
+
+        $firstName = $req->input('firstName') ?: $account?->first_name;
+
+        return $wasapi->notifyKycRegistrationComplete($phoneDigits, $firstName ? (string) $firstName : null);
     }
 
     private function countryToNationality(string $country): string
@@ -1178,19 +1591,12 @@ class AlfredController extends Controller
                 ]);
             }
 
-            // 3. Crear Quote
-            $quote = $alfred->createQuote([
-                'fromCurrency' => $request->fromCurrency,
-                'toCurrency' => $request->toCurrency,
-                'chain' => $request->chain,
-                'fromAmount' => $request->amount,
-                'toAmount' => $request->amount,
-                'paymentMethodType' => 'BANK',
-            ]);
+            // 3. Crear Quote (POST /quotes fiat indirect)
+            $quote = $alfred->createTransferQuote($customer->customerId, (float) $request->amount);
 
             // 4. Ejecutar Offramp
             $offramp = $alfred->createOfframp([
-                'quoteId' => $quote->quoteId,
+                'quoteId' => $quote->quote_id,
                 'customerId' => $customer->customerId,
                 'fiatAccountId' => $paymentMethod->fiatAccountId,
                 'chain' => $request->chain,
@@ -1213,5 +1619,205 @@ class AlfredController extends Controller
         }
     }
 
+    public function showBankDetailsForm(string $phone)
+    {
+        $digits = preg_replace('/[^0-9]/', '', $phone);
+        if ($digits === '') {
+            abort(404, 'Teléfono inválido en la URL.');
+        }
 
+        return view('alfred.bank-details-form', [
+            'phone' => $digits,
+        ]);
+    }
+
+    public function showBankDetailsCreateForm(string $phone)
+    {
+        $digits = preg_replace('/[^0-9]/', '', $phone);
+        if ($digits === '') {
+            abort(404, 'Teléfono inválido en la URL.');
+        }
+
+        return view('alfred.bank-details-create', [
+            'phone' => $digits,
+        ]);
+    }
+
+    public function loadBankDetailsByPhone(Request $req, AlfredService $alfred)
+    {
+        try {
+            $data = $req->validate([
+                'phone' => 'required|string|min:7',
+            ]);
+
+            $result = $alfred->getBankDetailsByPhone($data['phone']);
+
+            return response()->json([
+                'success'     => true,
+                'phone'       => $result['phone'],
+                'customer_id' => $result['customer_id'],
+                'accounts'    => $result['accounts'],
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 404);
+        } catch (\Throwable $e) {
+            Log::error('Alfred loadBankDetailsByPhone', ['message' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 502);
+        }
+    }
+
+    public function setDefaultBankDetail(Request $req, AlfredService $alfred)
+    {
+        try {
+            $data = $req->validate([
+                'phone'          => 'required|string|min:7',
+                'bank_detail_id' => 'required|string|max:64',
+            ]);
+
+            $resolved = $this->resolveAlfredCustomerByPhone($data['phone']);
+            if ($resolved === null) {
+                return response()->json(['success' => false, 'message' => 'Cliente no encontrado.'], 404);
+            }
+
+            $accounts = $alfred->setDefaultCustomerBankDetail(
+                $resolved['customer_id'],
+                $data['bank_detail_id']
+            );
+
+            return response()->json([
+                'success'     => true,
+                'phone'       => $resolved['phone'],
+                'customer_id' => $resolved['customer_id'],
+                'accounts'    => $accounts,
+                'message'     => 'Cuenta predeterminada actualizada.',
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 404);
+        } catch (\Throwable $e) {
+            Log::error('Alfred setDefaultBankDetail', ['message' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 502);
+        }
+    }
+
+    public function createBankDetail(Request $req, AlfredService $alfred)
+    {
+        try {
+            $data = $req->validate([
+                'phone'             => 'required|string|min:7',
+                'type'              => 'required|string|max:32',
+                'accountNumber'     => 'required|string|max:64',
+                'accountType'       => 'required|string|max:32',
+                'accountName'       => 'required|string|max:150',
+                'accountBankCode'   => 'nullable|string|max:32',
+                'accountAlias'      => 'nullable|string|max:64',
+                'countryCode'       => 'nullable|string|max:8',
+                'routingNumber'     => 'nullable|string|max:32',
+                'isDefault'         => 'nullable|boolean',
+            ]);
+
+            $resolved = $this->resolveAlfredCustomerByPhone($data['phone']);
+            if ($resolved === null) {
+                return response()->json(['success' => false, 'message' => 'Cliente no encontrado.'], 404);
+            }
+
+            $phone = $data['phone'];
+            unset($data['phone']);
+
+            $created = $alfred->createCustomerBankDetail($resolved['customer_id'], $data);
+
+            if (! empty($data['isDefault']) && ! empty($created['id'])) {
+                $alfred->setDefaultCustomerBankDetail($resolved['customer_id'], (string) $created['id']);
+            }
+
+            $result = $alfred->getBankDetailsByPhone($phone);
+
+            return response()->json([
+                'success'     => true,
+                'account'     => $created,
+                'accounts'    => $result['accounts'],
+                'customer_id' => $result['customer_id'],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Alfred createBankDetail', ['message' => $e->getMessage()]);
+
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 502);
+        }
+    }
+
+    /**
+     * @OA\Get(
+     *     path="/api/alfred/customer/{customerId}/bank-details",
+     *     summary="Listar cuentas bancarias del customer",
+     *     operationId="alfredGetBankDetails",
+     *     tags={"Alfred"},
+     *     @OA\Parameter(name="customerId", in="path", required=true, @OA\Schema(type="string", format="uuid")),
+     *     @OA\Response(response=200, description="Lista de cuentas")
+     * )
+     */
+    public function getBankDetails(Request $req, AlfredService $alfred, string $customerId)
+    {
+        try {
+            $accounts = $alfred->getCustomerBankDetails($customerId);
+
+            return response()->json(['ok' => true, 'accounts' => $accounts], 200);
+        } catch (\Throwable $e) {
+            return response()->json(['ok' => false, 'message' => $e->getMessage()], 502);
+        }
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/alfred/customer/{customerId}/bank-details",
+     *     summary="Registrar cuenta bancaria",
+     *     operationId="alfredCreateBankDetail",
+     *     tags={"Alfred"},
+     *     @OA\Parameter(name="customerId", in="path", required=true, @OA\Schema(type="string")),
+     *     @OA\RequestBody(required=true, @OA\JsonContent(
+     *         required={"type","accountNumber","accountType","accountName"},
+     *         @OA\Property(property="type", type="string", example="ACH_DOM"),
+     *         @OA\Property(property="accountNumber", type="string"),
+     *         @OA\Property(property="accountType", type="string", example="CORRIENTE"),
+     *         @OA\Property(property="accountName", type="string"),
+     *         @OA\Property(property="countryCode", type="string", example="DO"),
+     *         @OA\Property(property="isDefault", type="boolean")
+     *     )),
+     *     @OA\Response(response=200, description="Cuenta creada")
+     * )
+     */
+    public function storeBankDetail(Request $req, AlfredService $alfred, string $customerId)
+    {
+        try {
+            $payload = $req->validate([
+                'type'              => 'required|string|max:32',
+                'accountNumber'     => 'required|string|max:64',
+                'accountType'       => 'required|string|max:32',
+                'accountName'       => 'required|string|max:150',
+                'accountBankCode'   => 'nullable|string|max:32',
+                'accountAlias'      => 'nullable|string|max:64',
+                'networkIdentifier' => 'nullable|string|max:64',
+                'bankStreet'        => 'nullable|string|max:120',
+                'bankCity'          => 'nullable|string|max:80',
+                'bankState'         => 'nullable|string|max:80',
+                'bankCountry'       => 'nullable|string|max:80',
+                'bankPostalCode'    => 'nullable|string|max:20',
+                'routingNumber'     => 'nullable|string|max:32',
+                'iban'              => 'nullable|string|max:64',
+                'bic'               => 'nullable|string|max:32',
+                'countryCode'       => 'nullable|string|max:8',
+                'isDefault'         => 'nullable|boolean',
+            ]);
+
+            $created = $alfred->createCustomerBankDetail($customerId, $payload);
+
+            if (! empty($payload['isDefault']) && ! empty($created['id'])) {
+                $alfred->setDefaultCustomerBankDetail($customerId, (string) $created['id']);
+            }
+
+            return response()->json(['ok' => true, 'account' => $created], 200);
+        } catch (\Throwable $e) {
+            return response()->json(['ok' => false, 'message' => $e->getMessage()], 502);
+        }
+    }
 }

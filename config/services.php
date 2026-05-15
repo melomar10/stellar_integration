@@ -51,4 +51,16 @@ return [
         'api_key' => env('SHORTIO_API_KEY', 'sk_OHtFayXvRmQdzwS5'),
         'domain' => env('SHORTIO_DOMAIN', 'example.xyz'),
     ],
+
+    /*
+    | Wasapi (WhatsApp) — https://api-ws.wasapi.io/api/v1
+    | from_id: ID del número emisor en Wasapi (GET /whatsapp-numbers en su panel o API).
+    | whatsapp_number: número del mismo canal en dígitos internacionales sin + (para wa.me), ej. 18095551234
+    */
+    'wasapi' => [
+        'api_key'           => env('WASAPI_API_KEY'),
+        'from_id'           => env('WASAPI_FROM_ID'),
+        'base_uri'          => env('WASAPI_BASE_URI', 'https://api-ws.wasapi.io/api/v1'),
+        'whatsapp_number'   => env('WASAPI_WHATSAPP_NUMBER'),
+    ],
 ];

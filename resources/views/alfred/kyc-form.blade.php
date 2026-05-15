@@ -208,6 +208,15 @@
         .btn-primary:active, .btn-submit:active { transform: translateY(0); }
         .btn-primary:disabled, .btn-submit:disabled { opacity: .6; cursor: not-allowed; transform: none; }
 
+        .btn-whatsapp {
+            background: #25D366 !important;
+            color: #fff !important;
+        }
+        .btn-whatsapp:hover {
+            background: #1da851 !important;
+            box-shadow: 0 4px 14px rgba(37, 211, 102, .35);
+        }
+
         .btn-search {
             padding: .75rem 1.4rem;
             background: var(--primary);
@@ -593,6 +602,10 @@
 
 </div><!-- /page-container -->
 
+@php
+    $wasapiWaMeDigits = preg_replace('/\D/', '', (string) config('services.wasapi.whatsapp_number', ''));
+@endphp
+
 <script>
 /* ─── State ─── */
 const STATE = {
@@ -649,6 +662,9 @@ const FILE_ICONS = {
 };
 
 const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+
+/** Dígitos del número de WhatsApp registrado en Wasapi (wa.me), sin "+". */
+const WASAPI_WA_ME_DIGITS = @json($wasapiWaMeDigits);
 
 /* ─── HTTP helper ─── */
 async function api(url, body) {
@@ -796,9 +812,18 @@ async function loadKycFields() {
         });
 
         if (res.success) {
-            renderKycFields(res.kyc_status);
-            document.getElementById('kyc-fields-section').style.display = 'block';
-            document.getElementById('move-type-card').style.display     = 'none';
+            const raw = res.kyc_status || {};
+            const st = (raw.status != null ? String(raw.status) : '').toLowerCase();
+            if (st === 'approved') {
+                document.getElementById('kyc-fields-section').style.display = 'none';
+                document.getElementById('move-type-card').style.display = 'none';
+                renderKycAlreadyApproved(raw);
+                showStep('step-result');
+            } else {
+                renderKycFields(res.kyc_status);
+                document.getElementById('kyc-fields-section').style.display = 'block';
+                document.getElementById('move-type-card').style.display = 'none';
+            }
         } else {
             showErr('kyc-error', res.message || 'Error al consultar el estado KYC.');
         }
@@ -809,7 +834,55 @@ async function loadKycFields() {
     }
 }
 
+/** KYC ya aprobado en Alfred: no mostrar formulario de requisitos. */
+function renderKycAlreadyApproved(kyc) {
+    const el = document.getElementById('result-content');
+    const fullName = kyc.fullName ? esc(kyc.fullName) : '';
+    const extra = fullName ? `<div class="result-detail"><span>Nombre en KYC</span><span style="font-weight:600;color:var(--text)">${fullName}</span></div>` : '';
+    const waBtn = WASAPI_WA_ME_DIGITS
+        ? `<button type="button" class="btn-primary btn-whatsapp" onclick="openWasapiWhatsApp()">Volver a WhatsApp</button>`
+        : '';
+    el.innerHTML = `
+        <div class="result-icon success">✓</div>
+        <div class="result-title">Proceso completado</div>
+        <div class="result-subtitle">Tu verificación de identidad (KYC) ya está aprobada. No es necesario enviar documentación de nuevo. Tu proceso fue completado de manera satisfactoria.</div>
+        ${extra}
+        <div class="result-detail"><span>Customer ID</span><code>${esc(STATE.customerId || '')}</code></div>
+        <div style="margin-top:1.5rem;display:flex;flex-direction:column;align-items:center;gap:0.75rem;width:100%;max-width:340px;margin-left:auto;margin-right:auto;">
+            ${bankAccountsButtonHtml()}
+            ${waBtn}
+            <button type="button" class="btn-primary" onclick="location.reload()">Nueva consulta</button>
+        </div>`;
+}
+
+function openWasapiWhatsApp() {
+    const d = String(WASAPI_WA_ME_DIGITS || '').replace(/\D/g, '');
+    if (!d) return;
+    window.location.href = 'https://wa.me/' + d;
+}
+
+function getBankDetailsUrl() {
+    const phone = String(STATE.phone || '').replace(/\D/g, '');
+    if (!phone) return null;
+    return @json(url('/alfred/cuentas')) + '/' + phone;
+}
+
+function bankAccountsButtonHtml() {
+    const url = getBankDetailsUrl();
+    if (!url) return '';
+    return `<a href="${esc(url)}" class="btn-primary" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;width:100%;text-align:center">Agregar cuentas bancarias</a>`;
+}
+
 function renderKycFields(kycStatus) {
+    const st = (kycStatus && kycStatus.status != null ? String(kycStatus.status) : '').toLowerCase();
+    if (st === 'approved') {
+        document.getElementById('kyc-fields-section').style.display = 'none';
+        document.getElementById('move-type-card').style.display = 'none';
+        renderKycAlreadyApproved(kycStatus);
+        showStep('step-result');
+        return;
+    }
+
     const fields = kycStatus.fields || {};
     const acc    = STATE.alfredAccount || {};
 
@@ -1009,12 +1082,14 @@ function renderResult(success, data) {
             <div class="result-icon success">✓</div>
             <div class="result-title">¡Verificación enviada!</div>
             <div class="result-subtitle">El KYC se procesó correctamente en Alfred.</div>
+            ${data.whatsapp_sent ? `<div class="alert alert-success" style="text-align:left;margin-top:1rem">Te enviamos un mensaje por WhatsApp confirmando que tu proceso de registro se completó de manera correcta.</div>` : ''}
             ${data.kyc_id
                 ? `<div class="result-detail"><span>KYC ID</span><code>${esc(data.kyc_id)}</code></div>`
                 : ''}
             <div class="result-detail"><span>Customer ID</span><code>${esc(data.customer_id)}</code></div>
-            <div style="margin-top:1.5rem">
-                <button class="btn-primary" onclick="location.reload()">Nueva verificación</button>
+            <div style="margin-top:1.5rem;display:flex;flex-direction:column;align-items:center;gap:0.75rem;width:100%;max-width:340px;margin-left:auto;margin-right:auto;">
+                ${bankAccountsButtonHtml()}
+                <button type="button" class="btn-primary" onclick="location.reload()">Nueva verificación</button>
             </div>`;
     } else {
         el.innerHTML = `

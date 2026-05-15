@@ -31,9 +31,15 @@ Route::prefix('alfred')->group(function () {
     Route::post('customers',                          [AlfredController::class, 'createCustomer']);
     Route::post('create-client-alfred',               [AlfredController::class, 'createClienAlfred']);
     Route::get('kyc-requirements',                    [AlfredController::class, 'kycRequirements']);
+    Route::post('kyc/status-by-phone',               [AlfredController::class, 'kycStatusByPhone']);
     Route::post('customers/{id}/kyc',                 [AlfredController::class, 'addKycInfo']);
     Route::post('customers/{id}/kyc/{sub}/submit',    [AlfredController::class, 'submitKyc']);
     Route::post('quotes',                             [AlfredController::class, 'createQuote']);
+    Route::post('quotes/by-phone',                    [AlfredController::class, 'createQuoteByPhone']);
+    Route::post('orders',                             [AlfredController::class, 'createOrder']);
+    Route::post('orders/confirm-by-phone',            [AlfredController::class, 'confirmOrderByPhone']);
+    Route::get('customer/{customerId}/bank-details',  [AlfredController::class, 'getBankDetails']);
+    Route::post('customer/{customerId}/bank-details', [AlfredController::class, 'storeBankDetail']);
     Route::post('onramp',                             [AlfredController::class, 'createOnramp']);
     Route::post('offramp',                            [AlfredController::class, 'createOfframp']);
     Route::post('support',                            [AlfredController::class, 'createSupport']);
