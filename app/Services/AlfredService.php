@@ -213,14 +213,170 @@ class AlfredService
 
         Log::debug('Alfred getKycCustomerStatus request', ['url' => $url, 'query' => $query]);
 
-        $response = Http::withHeaders($this->headers)
-            ->get($url, $query)
-            ->throw()
-            ->json();
+        try {
+            $httpResponse = Http::withHeaders($this->headers)->get($url, $query);
+            $httpResponse->throw();
+            $response = $httpResponse->json();
+        } catch (RequestException $e) {
+            if ($this->isNoKycBaseResponse($e->response)) {
+                Log::info('Alfred: customer sin KYC base, se cargan requisitos iniciales', [
+                    'customerId' => $customerId,
+                ]);
+
+                return $this->buildKycStatusForCustomerWithoutBase($query);
+            }
+
+            throw $e;
+        }
 
         Log::debug('Alfred getKycCustomerStatus response', is_array($response) ? $response : ['raw' => $response]);
 
         return is_array($response) ? $response : [];
+    }
+
+    /**
+     * Alfred devuelve 404 "has no KYC base" si nunca se envió POST /kyc/customer/{id}.
+     * En ese caso armamos una respuesta compatible con el formulario (NEEDS_INFO + fields).
+     *
+     * @param  array<string, mixed>  $params
+     * @return array<string, mixed>
+     */
+    private function buildKycStatusForCustomerWithoutBase(array $params): array
+    {
+        $country = $this->rampCountryToKycRequirementsCode(
+            (string) ($params['offRampCountry'] ?? 'DO')
+        );
+
+        try {
+            $requirements = $this->getKycRequirements($country);
+            $fields = $this->normalizeKycRequirementsToFields($requirements);
+        } catch (\Throwable $e) {
+            Log::warning('Alfred getKycRequirements fallback', [
+                'country' => $country,
+                'error'   => $e->getMessage(),
+            ]);
+            $fields = $this->defaultKycFieldsTemplate();
+        }
+
+        return [
+            'status'              => 'NEEDS_INFO',
+            'fields'              => $fields,
+            'kyc_not_initialized' => true,
+        ];
+    }
+
+    private function isNoKycBaseResponse(?\Illuminate\Http\Client\Response $response): bool
+    {
+        if ($response === null || $response->status() !== 404) {
+            return false;
+        }
+
+        $body = $response->json();
+        $message = $body['message'] ?? '';
+        if (is_array($message)) {
+            $message = implode(' ', $message);
+        }
+
+        return stripos((string) $message, 'no kyc base') !== false
+            || stripos((string) $message, 'no KYC base') !== false;
+    }
+
+    private function rampCountryToKycRequirementsCode(string $rampCountry): string
+    {
+        return match (strtoupper(trim($rampCountry))) {
+            'US' => 'US',
+            'DO' => 'DO',
+            'MX' => 'MX',
+            'ES' => 'ES',
+            default => 'DO',
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $requirements
+     * @return array<string, array<string, mixed>>
+     */
+    private function normalizeKycRequirementsToFields(array $requirements): array
+    {
+        if (isset($requirements['fields']) && is_array($requirements['fields'])) {
+            return $this->normalizeKycFieldDefinitions($requirements['fields']);
+        }
+
+        if (isset($requirements['requirements']) && is_array($requirements['requirements'])) {
+            return $this->normalizeKycRequirementsToFields(['fields' => $requirements['requirements']]);
+        }
+
+        $fields = [];
+        $skipKeys = ['country', 'id', 'status', 'message', 'error', 'statusCode'];
+
+        foreach ($requirements as $key => $value) {
+            if (! is_string($key) || in_array($key, $skipKeys, true)) {
+                continue;
+            }
+            if (! is_array($value)) {
+                continue;
+            }
+            if (isset($value['name']) && is_string($value['name'])) {
+                $fields[$value['name']] = $value;
+                continue;
+            }
+            $fields[$key] = $value;
+        }
+
+        if ($fields !== []) {
+            return $this->normalizeKycFieldDefinitions($fields);
+        }
+
+        return $this->defaultKycFieldsTemplate();
+    }
+
+    /**
+     * @param  array<string, mixed>  $fields
+     * @return array<string, array<string, mixed>>
+     */
+    private function normalizeKycFieldDefinitions(array $fields): array
+    {
+        $out = [];
+
+        foreach ($fields as $key => $def) {
+            if (! is_string($key)) {
+                continue;
+            }
+            if (! is_array($def)) {
+                $def = [];
+            }
+
+            $out[$key] = [
+                'optional'    => (bool) ($def['optional'] ?? $def['isOptional'] ?? false),
+                'description' => (string) ($def['description'] ?? $def['label'] ?? ''),
+                'type'        => (string) ($def['type'] ?? ($key === 'dateOfBirth' ? 'date' : 'text')),
+            ];
+        }
+
+        return $out !== [] ? $out : $this->defaultKycFieldsTemplate();
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function defaultKycFieldsTemplate(): array
+    {
+        $textFields = [
+            'firstName', 'lastName', 'email', 'phoneNumber', 'dateOfBirth',
+            'country', 'nationalId', 'streetAddress', 'city', 'postalCode',
+        ];
+        $fileFields = ['idFront', 'idBack', 'selfie'];
+
+        $out = [];
+        foreach (array_merge($textFields, $fileFields) as $key) {
+            $out[$key] = [
+                'optional'    => false,
+                'description' => '',
+                'type'        => $key === 'dateOfBirth' ? 'date' : 'text',
+            ];
+        }
+
+        return $out;
     }
 
     /**
