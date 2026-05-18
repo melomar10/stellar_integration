@@ -372,6 +372,10 @@
         .doc-card.has-file .doc-check { display: flex; }
         .doc-card input[type="file"] {
             position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+            font-size: 1rem; /* evita zoom en iOS al tocar */
+        }
+        .doc-hint {
+            font-size: .7rem; color: var(--text-muted); margin-top: .5rem; line-height: 1.35;
         }
 
         /* ── Errors / Alerts ── */
@@ -660,6 +664,17 @@ const FILE_ICONS = {
     selfie: '🤳', proofOfAddress: '🏠',
     bankStatement: '🏦', incomeProof: '💼',
 };
+
+/** Atributos del input file: cámara + galería en móvil (accept + capture). */
+function kycFileInputAttributes(fieldKey) {
+    const allowsPdf = ['bankStatement', 'incomeProof'].includes(fieldKey);
+    const accept = allowsPdf
+        ? 'image/*,.pdf,application/pdf'
+        : 'image/*';
+    // selfie: cámara frontal; documentos: cámara trasera (mejor para fotos de ID)
+    const capture = fieldKey === 'selfie' ? 'user' : 'environment';
+    return `accept="${accept}" capture="${capture}"`;
+}
 
 const CSRF = document.querySelector('meta[name="csrf-token"]').content;
 
@@ -1015,10 +1030,11 @@ function renderKycFields(kycStatus) {
                 <div class="doc-icon">${icon}</div>
                 <div class="doc-title">${label} ${req}</div>
                 <div class="doc-desc">${esc(def.description || '')}</div>
-                <span class="doc-btn" id="btn-${key}">Seleccionar archivo</span>
+                <span class="doc-btn" id="btn-${key}">Tomar foto o elegir archivo</span>
                 <div class="doc-filename" id="name-${key}"></div>
+                <p class="doc-hint">En el celular puedes abrir la cámara o elegir una imagen guardada.</p>
                 <input type="file" name="${key}" id="file-${key}"
-                       accept=".jpg,.jpeg,.png,.pdf"
+                       ${kycFileInputAttributes(key)}
                        onchange="handleFile(this,'card-${key}','name-${key}','btn-${key}')">
             </div>`;
         }).join('');
@@ -1038,7 +1054,7 @@ function handleFile(input, cardId, nameId, btnId) {
     } else {
         card.classList.remove('has-file');
         nameEl.textContent = '';
-        btn.textContent    = 'Seleccionar archivo';
+        btn.textContent    = 'Tomar foto o elegir archivo';
     }
 }
 
