@@ -38,6 +38,7 @@ Route::prefix('alfred')->group(function () {
     Route::post('quotes/by-phone',                    [AlfredController::class, 'createQuoteByPhone']);
     Route::post('orders',                             [AlfredController::class, 'createOrder']);
     Route::post('orders/confirm-by-phone',            [AlfredController::class, 'confirmOrderByPhone']);
+    Route::post('orders/complete',                    [AlfredController::class, 'completeOrder']);
     Route::get('customer/{customerId}/bank-details',  [AlfredController::class, 'getBankDetails']);
     Route::post('customer/{customerId}/bank-details', [AlfredController::class, 'storeBankDetail']);
     Route::post('onramp',                             [AlfredController::class, 'createOnramp']);

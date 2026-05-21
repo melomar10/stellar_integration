@@ -11,6 +11,8 @@ class AlfredOrder extends Model
 
     public const STATUS_CONFIRMED = 'confirmed';
 
+    public const STATUS_COMPLETED = 'completed';
+
     protected $fillable = [
         'alfred_quote_id',
         'alfred_order_id',

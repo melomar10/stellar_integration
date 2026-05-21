@@ -773,6 +773,85 @@ class AlfredController extends Controller
         }
     }
 
+    /**
+     * @OA\Post(
+     *     path="/api/alfred/orders/complete",
+     *     summary="Completar orden (callback Alfred)",
+     *     description="Alfred notifica el resultado de la transacción. Actualiza status por order_id (completed por defecto; luego refunded, reversed, etc.).",
+     *     operationId="alfredCompleteOrder",
+     *     tags={"Alfred"},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"order_id"},
+     *             @OA\Property(property="order_id", type="string", format="uuid", example="b586dddf-c6c8-487a-9371-3c2d0c0b432a"),
+     *             @OA\Property(property="status", type="string", example="completed", description="Estado final: completed (default), refunded, reversed, failed, etc.")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Orden marcada como completada",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="ok", type="boolean", example=true),
+     *             @OA\Property(property="order_id", type="string", format="uuid"),
+     *             @OA\Property(property="status", type="string", example="completed"),
+     *             @OA\Property(property="already_completed", type="boolean", example=false),
+     *             @OA\Property(property="order", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(response=404, description="Orden no encontrada"),
+     *     @OA\Response(response=422, description="Validación"),
+     *     @OA\Response(response=500, description="Error interno")
+     * )
+     */
+    public function completeOrder(Request $req, AlfredService $alfred)
+    {
+        try {
+            $data = $req->validate([
+                'order_id' => 'required_without:orderId|string|max:64',
+                'orderId'  => 'required_without:order_id|string|max:64',
+                'status'   => 'nullable|string|max:64',
+            ]);
+
+            $orderId = trim((string) ($data['order_id'] ?? $data['orderId'] ?? ''));
+            $status = isset($data['status']) ? trim((string) $data['status']) : null;
+
+            $result = $alfred->completeOrder($orderId, $status !== '' ? $status : null);
+
+            return response()->json([
+                'ok'                => true,
+                'order_id'          => $result['order_id'],
+                'status'            => $result['status'],
+                'already_completed' => $result['already_completed'],
+                'order'             => $result['order'],
+            ], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Error de validación',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'ok'      => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'ok'      => false,
+                'message' => $e->getMessage(),
+            ], 404);
+        } catch (\Throwable $e) {
+            Log::error('Alfred completeOrder', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+
+            return response()->json([
+                'ok'      => false,
+                'message' => 'No se pudo completar la orden.',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function createOnramp(Request $req, AlfredService $alfred)
     {
         $data = $req->validate([ /* quote_id, amount, etc. */]);

@@ -730,6 +730,65 @@ class AlfredService
     }
 
     /**
+     * Actualiza el estado de la orden (callback/webhook de Alfred).
+     * `status` opcional: completed (default), refunded, reversed, failed, etc.
+     *
+     * @return array{order_id: string, status: string, already_completed: bool, order: AlfredOrder}
+     */
+    public function completeOrder(string $orderId, ?string $status = null): array
+    {
+        $orderId = trim($orderId);
+        if ($orderId === '') {
+            throw new \InvalidArgumentException('orderId es requerido.');
+        }
+
+        $status = strtolower(trim((string) ($status ?? '')));
+        if ($status === '') {
+            $status = AlfredOrder::STATUS_COMPLETED;
+        }
+
+        $order = AlfredOrder::where('alfred_order_id', $orderId)->first();
+        if ($order === null) {
+            throw new \RuntimeException("No existe una orden local con order_id {$orderId}.");
+        }
+
+        if ($order->status === $status) {
+            return [
+                'order_id'          => $orderId,
+                'status'            => $status,
+                'already_completed' => true,
+                'order'             => $order,
+            ];
+        }
+
+        $update = [
+            'status'            => $status,
+            'api_status'        => $status,
+            'alfred_updated_at' => now(),
+            'error_message'     => null,
+            'error_code'        => null,
+        ];
+
+        if ($status === AlfredOrder::STATUS_COMPLETED) {
+            $update['alfred_completed_at'] = now();
+        }
+
+        $order->update($update);
+
+        Log::info('Alfred orden actualizada por callback', [
+            'order_id' => $orderId,
+            'status'   => $status,
+        ]);
+
+        return [
+            'order_id'          => $orderId,
+            'status'            => $status,
+            'already_completed' => false,
+            'order'             => $order->fresh(),
+        ];
+    }
+
+    /**
      * GET /customer/{customerId}/bank-details
      *
      * @return list<array<string, mixed>>
