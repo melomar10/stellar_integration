@@ -738,6 +738,7 @@ class AlfredController extends Controller
      */
     public function confirmOrderByPhone(Request $req, AlfredService $alfred)
     {
+        sleep(3);
         try {
             $data = $req->validate([
                 'phone' => 'required|string|min:7',
