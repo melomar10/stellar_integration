@@ -1140,6 +1140,29 @@ class AlfredService
         return (string) $alfredAccount->alfred_customer_id;
     }
 
+    public function resolvePhoneByAlfredCustomerId(string $customerId): ?string
+    {
+        $customerId = trim($customerId);
+        if ($customerId === '') {
+            return null;
+        }
+
+        $alfredAccount = AlfredAccount::where('alfred_customer_id', $customerId)->first();
+        if ($alfredAccount && ! empty($alfredAccount->phone)) {
+            return $this->normalizePhone((string) $alfredAccount->phone);
+        }
+
+        $client = Client::whereHas('alfredAccount', static function ($query) use ($customerId) {
+            $query->where('alfred_customer_id', $customerId);
+        })->first();
+
+        if ($client && ! empty($client->phone)) {
+            return $this->normalizePhone((string) $client->phone);
+        }
+
+        return null;
+    }
+
     // 7. Onramp
     public function createOnramp(array $payload): array
     {

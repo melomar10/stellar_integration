@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AlfredOrder;
 use App\Models\AlfredAccount;
 use App\Models\Client;
 use App\Services\AlfredService;
@@ -744,13 +745,7 @@ class AlfredController extends Controller
 
             $result = $alfred->confirmOrderByPhone($data['phone']);
 
-            return response()->json([
-                'ok'                   => true,
-                'phone'                => $result['phone'],
-                'order_id'             => $result['order_id'],
-                'payment_method'       => $result['payment_method'],
-                'payment_instructions' => $result['payment_instructions'],
-            ], 200);
+            return response()->json($result['payment_instructions'] , 200);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'ok'      => false,
@@ -804,7 +799,7 @@ class AlfredController extends Controller
      *     @OA\Response(response=500, description="Error interno")
      * )
      */
-    public function completeOrder(Request $req, AlfredService $alfred)
+    public function completeOrder(Request $req, AlfredService $alfred, WasapiService $wasapi)
     {
         try {
             $data = $req->validate([
@@ -818,12 +813,25 @@ class AlfredController extends Controller
 
             $result = $alfred->completeOrder($orderId, $status !== '' ? $status : null);
 
+            $whatsapp = null;
+            if (
+                ! $result['already_completed']
+                && $result['status'] === AlfredOrder::STATUS_COMPLETED
+                && $result['order'] instanceof AlfredOrder
+            ) {
+                $order = $result['order'];
+                $senderPhone = $alfred->resolvePhoneByAlfredCustomerId((string) $order->sender_customer_id);
+                $receiverPhone = $alfred->resolvePhoneByAlfredCustomerId((string) $order->receiver_customer_id);
+                $whatsapp = $wasapi->notifyOrderTransactionComplete($senderPhone, $receiverPhone);
+            }
+
             return response()->json([
                 'ok'                => true,
                 'order_id'          => $result['order_id'],
                 'status'            => $result['status'],
                 'already_completed' => $result['already_completed'],
                 'order'             => $result['order'],
+                'whatsapp'          => $whatsapp,
             ], 200);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([

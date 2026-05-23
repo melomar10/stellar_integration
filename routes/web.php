@@ -6,8 +6,9 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ClientController;
-use App\Http\Controllers\WaitingListController;
+use App\Http\Controllers\WasapiController;
 use App\Http\Controllers\AlfredController;
+use App\Http\Controllers\Admin\AlfredOrderController;
 
 /*Route::get('/', function () {
     return view('welcome');
@@ -64,9 +65,20 @@ Route::middleware(['auth', 'role'])->prefix('admin')->name('admin.')->group(func
         return view('admin.transfers');
     })->name('transfers');
 
+    Route::get('/orders', [AlfredOrderController::class, 'index'])->name('orders.index');
+    Route::get('/orders/{order}', [AlfredOrderController::class, 'show'])->name('orders.show');
+
     Route::get('/settings', function () {
         return view('admin.settings');
     })->name('settings');
+
+    Route::prefix('wasapi')->name('wasapi.')->group(function () {
+        Route::get('/', [WasapiController::class, 'index'])->name('index');
+        Route::post('/credentials', [WasapiController::class, 'saveCredentials'])->name('credentials');
+        Route::post('/sync-lines', [WasapiController::class, 'syncLines'])->name('sync');
+        Route::post('/default-line', [WasapiController::class, 'setDefaultLine'])->name('default');
+        Route::post('/test-message', [WasapiController::class, 'sendTestMessage'])->name('test-message');
+    });
 
     // Rutas de perfil del usuario autenticado
     Route::get('/profile', [UserController::class, 'profile'])->name('profile');

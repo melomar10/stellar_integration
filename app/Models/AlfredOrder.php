@@ -53,6 +53,33 @@ class AlfredOrder extends Model
         return $this->belongsTo(AlfredQuote::class, 'alfred_quote_id');
     }
 
+    public function senderAccount(): BelongsTo
+    {
+        return $this->belongsTo(AlfredAccount::class, 'sender_customer_id', 'alfred_customer_id');
+    }
+
+    public function receiverAccount(): BelongsTo
+    {
+        return $this->belongsTo(AlfredAccount::class, 'receiver_customer_id', 'alfred_customer_id');
+    }
+
+    public function isCompleted(): bool
+    {
+        return $this->status === self::STATUS_COMPLETED;
+    }
+
+    public function formattedAmount(): string
+    {
+        if ($this->total_amount_value === null || $this->total_amount_value === '') {
+            return '—';
+        }
+
+        $amount = number_format((float) $this->total_amount_value, 2, '.', ',');
+        $currency = $this->total_amount_currency ?: '';
+
+        return trim($amount.' '.$currency);
+    }
+
     public function toArray(): array
     {
         $array = parent::toArray();
