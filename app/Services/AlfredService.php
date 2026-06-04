@@ -189,10 +189,27 @@ class AlfredService
     }
 
     /**
-     * Valida el estado KYC de un customer (aprobado, pendiente, etc.).
-     * Endpoint: GET /kyc/customer/{customerId}/status?onRampCountry=...&offRampCountry=...&...
+     * Parámetros de rampa que Alfred exige en todas las peticiones KYC (consulta y envío).
      *
-     * Respuesta típica: id, status, fullName, statusVerifiedAt, createdAt, updatedAt.
+     * @return array<string, string>
+     */
+    public function defaultKycRampParams(string $role = 'receiver'): array
+    {
+        return [
+            'onRampCountry'   => 'US',
+            'offRampCountry'  => 'DO',
+            'onRampCurrency'  => 'USD',
+            'offRampCurrency' => 'DOP',
+            'role'            => $role,
+        ];
+    }
+
+    /**
+     * Valida el estado KYC de un customer (aprobado, pendiente, campos faltantes, etc.).
+     * Endpoint principal: GET /kyc/customer?customerId=...&onRampCountry=...&...
+     *
+     * Devuelve status (NEEDS_INFO, ACCEPTED, APPROVED, etc.) y, si aplica, fields con lo faltante.
+     * Si el customer nunca envió KYC base (404), se arma NEEDS_INFO desde kycRequirements.
      */
     public function getKycCustomerStatus(string $customerId, array $params = []): array
     {
@@ -201,15 +218,20 @@ class AlfredService
             throw new \InvalidArgumentException('customerId es requerido para consultar el estado KYC.');
         }
 
-        $query = array_filter([
-            'onRampCountry'   => $params['onRampCountry']   ?? 'US',
-            'offRampCountry'  => $params['offRampCountry']  ?? 'DO',
-            'onRampCurrency'  => $params['onRampCurrency']  ?? 'USD',
-            'offRampCurrency' => $params['offRampCurrency'] ?? 'DOP',
-            'role'            => $params['role']            ?? 'sender',
-        ], static fn ($v) => !is_null($v) && $v !== '');
+        $query = array_merge(
+            ['customerId' => $customerId],
+            $this->defaultKycRampParams((string) ($params['role'] ?? 'receiver'))
+        );
 
-        $url = rtrim((string) $this->baseUri, '/') . '/kyc/customer/' . rawurlencode($customerId) . '/status';
+        foreach (['onRampCountry', 'offRampCountry', 'onRampCurrency', 'offRampCurrency', 'role'] as $key) {
+            if (isset($params[$key]) && $params[$key] !== '') {
+                $query[$key] = (string) $params[$key];
+            }
+        }
+
+        $query = array_filter($query, static fn ($v) => !is_null($v) && $v !== '');
+
+        $url = rtrim((string) $this->baseUri, '/') . '/kyc/customer';
 
         Log::debug('Alfred getKycCustomerStatus request', ['url' => $url, 'query' => $query]);
 
@@ -226,10 +248,51 @@ class AlfredService
                 return $this->buildKycStatusForCustomerWithoutBase($query);
             }
 
-            throw $e;
+            Log::warning('Alfred getKycCustomerStatus: fallback a /status', [
+                'customerId' => $customerId,
+                'error'      => $e->getMessage(),
+            ]);
+
+            return $this->getKycCustomerStatusViaLegacyEndpoint($customerId, $params);
         }
 
         Log::debug('Alfred getKycCustomerStatus response', is_array($response) ? $response : ['raw' => $response]);
+
+        if (! is_array($response)) {
+            return [];
+        }
+
+        if (isset($response['fields']) && is_array($response['fields'])) {
+            $response['fields'] = $this->normalizeKycFieldDefinitions($response['fields'], preservePartial: true);
+        }
+
+        return $response;
+    }
+
+    /**
+     * Respaldo: GET /kyc/customer/{customerId}/status (no siempre incluye fields faltantes).
+     *
+     * @param  array<string, mixed>  $params
+     * @return array<string, mixed>
+     */
+    private function getKycCustomerStatusViaLegacyEndpoint(string $customerId, array $params): array
+    {
+        $query = array_filter(array_merge(
+            $this->defaultKycRampParams((string) ($params['role'] ?? 'receiver'))
+        ), static fn ($v) => !is_null($v) && $v !== '');
+
+        foreach (['onRampCountry', 'offRampCountry', 'onRampCurrency', 'offRampCurrency', 'role'] as $key) {
+            if (isset($params[$key]) && $params[$key] !== '') {
+                $query[$key] = (string) $params[$key];
+            }
+        }
+
+        $url = rtrim((string) $this->baseUri, '/') . '/kyc/customer/' . rawurlencode($customerId) . '/status';
+
+        $httpResponse = Http::withHeaders($this->headers)->get($url, $query);
+        $httpResponse->throw();
+
+        $response = $httpResponse->json();
 
         return is_array($response) ? $response : [];
     }
@@ -334,7 +397,7 @@ class AlfredService
      * @param  array<string, mixed>  $fields
      * @return array<string, array<string, mixed>>
      */
-    private function normalizeKycFieldDefinitions(array $fields): array
+    private function normalizeKycFieldDefinitions(array $fields, bool $preservePartial = false): array
     {
         $out = [];
 
@@ -353,7 +416,11 @@ class AlfredService
             ];
         }
 
-        return $out !== [] ? $out : $this->defaultKycFieldsTemplate();
+        if ($out !== []) {
+            return $out;
+        }
+
+        return $preservePartial ? [] : $this->defaultKycFieldsTemplate();
     }
 
     /**
@@ -391,7 +458,12 @@ class AlfredService
         $multipart = [];
 
         foreach ($fields as $key => $value) {
-            if (is_null($value)) continue;
+            if (is_null($value)) {
+                continue;
+            }
+            if ($value === '' && $key === 'fileTypes') {
+                continue;
+            }
             if (is_bool($value))                  $value = $value ? 'true' : 'false';
             if (is_array($value) || is_object($value)) $value = json_encode($value);
             $multipart[] = ['name' => (string) $key, 'contents' => (string) $value];

@@ -829,15 +829,20 @@ async function loadKycFields() {
         if (res.success) {
             const raw = res.kyc_status || {};
             const st = (raw.status != null ? String(raw.status) : '').toLowerCase();
-            if (st === 'approved') {
+            if (isKycCompleteStatus(st)) {
                 document.getElementById('kyc-fields-section').style.display = 'none';
                 document.getElementById('move-type-card').style.display = 'none';
                 renderKycAlreadyApproved(raw);
                 showStep('step-result');
             } else {
-                renderKycFields(res.kyc_status);
-                document.getElementById('kyc-fields-section').style.display = 'block';
-                document.getElementById('move-type-card').style.display = 'none';
+                const rendered = renderKycFields(res.kyc_status);
+                if (rendered) {
+                    document.getElementById('kyc-fields-section').style.display = 'block';
+                    document.getElementById('move-type-card').style.display = 'none';
+                } else {
+                    document.getElementById('kyc-fields-section').style.display = 'none';
+                    document.getElementById('move-type-card').style.display = 'block';
+                }
             }
         } else {
             showErr('kyc-error', res.message || 'Error al consultar el estado KYC.');
@@ -888,18 +893,37 @@ function bankAccountsButtonHtml() {
     return `<a href="${esc(url)}" class="btn-primary" style="text-decoration:none;display:inline-flex;align-items:center;justify-content:center;width:100%;text-align:center">Agregar cuentas bancarias</a>`;
 }
 
+function isKycCompleteStatus(status) {
+    const st = (status != null ? String(status) : '').toLowerCase();
+    return st === 'approved' || st === 'accepted';
+}
+
 function renderKycFields(kycStatus) {
     const st = (kycStatus && kycStatus.status != null ? String(kycStatus.status) : '').toLowerCase();
-    if (st === 'approved') {
+    const submitBtn = document.getElementById('btn-submit-kyc');
+    hideErr('kyc-error');
+
+    if (isKycCompleteStatus(st)) {
         document.getElementById('kyc-fields-section').style.display = 'none';
         document.getElementById('move-type-card').style.display = 'none';
         renderKycAlreadyApproved(kycStatus);
         showStep('step-result');
-        return;
+        return false;
     }
 
     const fields = kycStatus.fields || {};
-    const acc    = STATE.alfredAccount || {};
+    const fieldKeys = Object.keys(fields);
+
+    if (fieldKeys.length === 0) {
+        showErr('kyc-error', 'Alfred indica que el KYC está incompleto pero no devolvió los campos requeridos. Vuelve a consultar o contacta soporte.');
+        document.getElementById('kyc-fields-section').style.display = 'none';
+        if (submitBtn) submitBtn.disabled = true;
+        return false;
+    }
+
+    if (submitBtn) submitBtn.disabled = false;
+
+    const acc = STATE.alfredAccount || {};
 
     /* Existing data map – alfredAccount keys → Alfred field names */
     const existing = {
@@ -933,6 +957,7 @@ function renderKycFields(kycStatus) {
         'NEEDS_INFO': 'Requiere información',
         'PENDING':    'Pendiente',
         'APPROVED':   'Aprobado',
+        'ACCEPTED':   'Aprobado',
         'REJECTED':   'Rechazado',
     };
     const badge = document.getElementById('kyc-status-badge');
@@ -950,7 +975,8 @@ function renderKycFields(kycStatus) {
     /* ── Text / select fields ── */
     document.getElementById('kyc-text-fields').innerHTML = textFields.map(({ key, def }) => {
         const label    = FIELD_LABELS[key] || key;
-        const val      = existing[key] || '';
+        /* Campos que Alfred pide de nuevo no se prellenan (requieren re-verificación) */
+        const val      = fields.hasOwnProperty(key) ? '' : (existing[key] || '');
         const required = !def.optional;
         const req      = required ? '<span class="req">*</span>' : '';
         const reqAttr  = required ? 'required' : '';
@@ -1041,6 +1067,8 @@ function renderKycFields(kycStatus) {
     } else {
         document.getElementById('kyc-files-section').style.display = 'none';
     }
+
+    return true;
 }
 
 function handleFile(input, cardId, nameId, btnId) {
@@ -1064,6 +1092,13 @@ function handleFile(input, cardId, nameId, btnId) {
 async function submitKyc(e) {
     e.preventDefault();
     hideErr('submit-error');
+
+    const textCount = document.getElementById('kyc-text-fields')?.children.length || 0;
+    const fileCount = document.getElementById('kyc-file-fields')?.children.length || 0;
+    if (textCount + fileCount === 0) {
+        return showErr('submit-error', 'No hay campos para enviar. Consulta los requisitos KYC primero.');
+    }
+
     setLoading('sp-submit', 'txt-submit', 'btn-submit-kyc', true, 'Enviando...');
 
     try {

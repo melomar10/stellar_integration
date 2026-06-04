@@ -413,28 +413,25 @@ class AlfredController extends Controller
 
             $customerId = (string) $alfredAccount->alfred_customer_id;
 
-            $params = [
-                'onRampCountry'   => 'US',
-                'offRampCountry'  => 'DO',
-                'onRampCurrency'  => 'USD',
-                'offRampCurrency' => 'DOP',
-                'role'            => 'sender',
-            ];
+            $params = $alfred->defaultKycRampParams('receiver');
 
             Log::debug('Alfred kycStatusByPhone', ['phone' => $phone, 'customerId' => $customerId, 'params' => $params]);
 
             $kyc = $alfred->getKycCustomerStatus($customerId, $params);
 
             $status = is_array($kyc) ? ($kyc['status'] ?? null) : null;
-            $approved = is_string($status) && strcasecmp($status, 'approved') === 0;
+            $statusNorm = is_string($status) ? strtolower($status) : '';
+            $approved = in_array($statusNorm, ['approved', 'accepted'], true);
+            $missingFields = is_array($kyc['fields'] ?? null) ? $kyc['fields'] : [];
 
             return response()->json([
-                'ok'           => true,
-                'phone'        => $phone,
-                'customer_id'  => $customerId,
-                'kyc_approved' => $approved,
-                'kyc_status'   => $status,
-                'kyc'          => $kyc,
+                'ok'              => true,
+                'phone'           => $phone,
+                'customer_id'     => $customerId,
+                'kyc_approved'    => $approved,
+                'kyc_status'      => $status,
+                'missing_fields'  => array_keys($missingFields),
+                'kyc'             => $kyc,
             ], 200);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -1225,13 +1222,9 @@ class AlfredController extends Controller
             $customerId = $req->customer_id;
             $moveType   = $req->move_type;
 
-            $params = [
-                'onRampCountry'   => 'US',
-                'offRampCountry'  => 'DO',
-                'onRampCurrency'  => 'USD',
-                'offRampCurrency' => 'DOP',
-                'role'            => $moveType === 'Enviar' ? 'sender' : 'receiver',
-            ];
+            $params = array_merge(
+                $alfred->defaultKycRampParams($moveType === 'Enviar' ? 'sender' : 'receiver'),
+            );
 
             Log::debug('Alfred getKycStatus request', array_merge(['customerId' => $customerId], $params));
             $kycStatus = $alfred->getKycCustomerStatus($customerId, $params);
@@ -1255,11 +1248,7 @@ class AlfredController extends Controller
             $customerId = $req->customer_id;
             $moveType   = $req->move_type;
 
-            $onRampCountry   = 'US';
-            $offRampCountry  = 'DO';
-            $onRampCurrency  = 'USD';
-            $offRampCurrency = 'DOP';
-            $role            = $moveType === 'Enviar' ? 'sender' : 'receiver';
+            $role = $moveType === 'Enviar' ? 'sender' : 'receiver';
 
             // Mapeo campo del form → valor válido en fileTypes de Alfred
             $fileTypeMap = [
@@ -1317,13 +1306,13 @@ class AlfredController extends Controller
                     ?? $this->countryToNationality($kycPayload['country']);
             }
 
-            // Ramp params + role (siempre fijos)
-            $kycPayload['onRampCountry']  = $onRampCountry;
-            $kycPayload['offRampCountry'] = $offRampCountry;
-            $kycPayload['onRampCurrency'] = $onRampCurrency;
-            $kycPayload['offRampCurrency']= $offRampCurrency;
-            $kycPayload['role']           = $role;
-            $kycPayload['fileTypes']      = implode(',', $fileTypes);
+            // Ramp params + role (siempre obligatorios en Alfred)
+            $kycPayload = array_merge($kycPayload, $alfred->defaultKycRampParams($role));
+
+            // fileTypes solo cuando hay archivos; cadena vacía provoca 400 en Alfred
+            if ($fileTypes !== []) {
+                $kycPayload['fileTypes'] = implode(',', $fileTypes);
+            }
             // ─────────────────────────────────────────────────────────────────────
 
             Log::debug('Alfred submitKycForm payload', $kycPayload);
@@ -1365,11 +1354,11 @@ class AlfredController extends Controller
                     'cpf'                   => $req->input('cpf'),
                     'move_type'             => $moveType,
                     'role'                  => $role,
-                    'on_ramp_country'       => $onRampCountry,
-                    'off_ramp_country'      => $offRampCountry,
-                    'on_ramp_currency'      => $onRampCurrency,
-                    'off_ramp_currency'     => $offRampCurrency,
-                    'file_types'            => implode(',', $fileTypes),
+                    'on_ramp_country'       => 'US',
+                    'off_ramp_country'      => 'DO',
+                    'on_ramp_currency'      => 'USD',
+                    'off_ramp_currency'     => 'DOP',
+                    'file_types'            => $fileTypes !== [] ? implode(',', $fileTypes) : null,
                     'kyc_id'               => $kycId,
                 ], fn($v) => !is_null($v));
 
