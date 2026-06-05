@@ -4,11 +4,84 @@ namespace App\Services;
 
 use App\Models\WasapiSetting;
 use App\Models\WasapiWhatsappLine;
+use App\Models\WasapiWhatsappTemplate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class WasapiService
 {
+    public const CATEGORY_SOLICITUD_REMESA = 'Solicitud Remesas';
+
+    /** @var list<string> */
+    private const CATEGORY_SOLICITUD_REMESA_ALIASES = [
+        'Solicitud Remesas',
+        'Solicitud de remesa',
+    ];
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function fetchWhatsAppTemplates(?string $apiToken = null): array
+    {
+        $response = $this->request('GET', '/whatsapp-templates', [], $apiToken);
+        $data = $response['data'] ?? [];
+
+        return is_array($data) ? $data : [];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $remoteTemplates
+     * @return array{saved: int, templates: \Illuminate\Database\Eloquent\Collection<int, WasapiWhatsappTemplate>}
+     */
+    public function saveSelectedTemplates(array $remoteTemplates, array $selectedWasapiIds): array
+    {
+        $selectedWasapiIds = array_values(array_unique(array_map('intval', $selectedWasapiIds)));
+
+        if ($selectedWasapiIds === []) {
+            WasapiWhatsappTemplate::query()->delete();
+
+            return [
+                'saved'     => 0,
+                'templates' => WasapiWhatsappTemplate::query()->orderBy('template_id')->get(),
+            ];
+        }
+
+        $byId = [];
+        foreach ($remoteTemplates as $template) {
+            if (! is_array($template) || empty($template['id'])) {
+                continue;
+            }
+            $byId[(int) $template['id']] = $template;
+        }
+
+        $savedCount = 0;
+
+        foreach ($selectedWasapiIds as $wasapiId) {
+            $template = $byId[$wasapiId] ?? null;
+            if ($template === null) {
+                continue;
+            }
+
+            WasapiWhatsappTemplate::updateOrCreate(
+                ['wasapi_id' => $wasapiId],
+                [
+                    'uuid'        => (string) ($template['uuid'] ?? ''),
+                    'template_id' => (string) ($template['template_id'] ?? ''),
+                    'status'      => (string) ($template['status'] ?? ''),
+                ]
+            );
+            $savedCount++;
+        }
+
+        WasapiWhatsappTemplate::query()
+            ->whereNotIn('wasapi_id', $selectedWasapiIds)
+            ->delete();
+
+        return [
+            'saved'     => $savedCount,
+            'templates' => WasapiWhatsappTemplate::query()->orderBy('template_id')->get(),
+        ];
+    }
+
     /**
      * @return list<array<string, mixed>>
      */
@@ -123,6 +196,273 @@ class WasapiService
             'wa_id'   => $waDigits,
             'message' => $message,
         ], $token);
+    }
+
+    /**
+     * Envía una plantilla de WhatsApp aprobada (POST /whatsapp-messages/send-template).
+     *
+     * @link https://api-docs.wasapi.io/reference/sendwhatsapptemplate
+     *
+     * @param  array{
+     *     template_id: string,
+     *     recipients: string|array<int, string>,
+     *     contact_type?: 'phone'|'contact',
+     *     from_id?: int|null,
+     *     body_vars?: array<int, mixed>|list<array{text: string, val: string}>,
+     *     header_var?: array<int, mixed>|list<array{text: string, val: string}>,
+     *     cta_var?: array<int, mixed>|list<array{text: string, val: string}>,
+     *     file?: 'document'|'image'|'video'|'audio'|null,
+     *     url_file?: string|null,
+     *     file_name?: string|null,
+     *     chatbot_status?: 'enable'|'disable'|'disable_permanently'|null,
+     *     conversation_status?: 'open'|'hold'|'closed'|'unchanged'|null,
+     * }  $params
+     * @return array<string, mixed>
+     */
+    public function sendWhatsAppTemplate(array $params, ?string $apiToken = null): array
+    {
+        $templateUuid = trim((string) ($params['template_id'] ?? ''));
+        if ($templateUuid === '') {
+            throw new \InvalidArgumentException('template_id (UUID de Wasapi) es requerido.');
+        }
+
+        $recipients = $this->normalizeTemplateRecipients($params['recipients'] ?? '');
+        if ($recipients === '') {
+            throw new \InvalidArgumentException('recipients es requerido (teléfono(s) o IDs de contacto).');
+        }
+
+        $contactType = strtolower(trim((string) ($params['contact_type'] ?? 'phone')));
+        if (! in_array($contactType, ['phone', 'contact'], true)) {
+            throw new \InvalidArgumentException('contact_type debe ser phone o contact.');
+        }
+
+        $fromId = $this->resolveFromId(isset($params['from_id']) ? (int) $params['from_id'] : null);
+        if ($fromId === null) {
+            throw new \RuntimeException('Wasapi no tiene línea por defecto configurada (from_id).');
+        }
+
+        $payload = [
+            'template_id'  => $templateUuid,
+            'recipients'   => $recipients,
+            'contact_type' => $contactType,
+            'from_id'      => $fromId,
+        ];
+
+        if (isset($params['body_vars']) && is_array($params['body_vars']) && $params['body_vars'] !== []) {
+            $payload['body_vars'] = $this->normalizeTemplateVars($params['body_vars']);
+        }
+
+        if (isset($params['header_var']) && is_array($params['header_var']) && $params['header_var'] !== []) {
+            $payload['header_var'] = $this->normalizeTemplateVars($params['header_var']);
+        }
+
+        if (isset($params['cta_var']) && is_array($params['cta_var']) && $params['cta_var'] !== []) {
+            $payload['cta_var'] = $this->normalizeTemplateVars($params['cta_var']);
+        }
+
+        foreach (['file', 'url_file', 'file_name', 'chatbot_status', 'conversation_status'] as $key) {
+            if (! empty($params[$key])) {
+                $payload[$key] = $params[$key];
+            }
+        }
+
+        if (! empty($payload['file'])) {
+            $allowedFiles = ['document', 'image', 'video', 'audio'];
+            if (! in_array($payload['file'], $allowedFiles, true)) {
+                throw new \InvalidArgumentException('file debe ser document, image, video o audio.');
+            }
+            if (empty($payload['url_file'])) {
+                throw new \InvalidArgumentException('url_file es requerido cuando se adjunta file en el encabezado.');
+            }
+        }
+
+        Log::info('Wasapi POST /whatsapp-messages/send-template', [
+            'template_id'  => $templateUuid,
+            'recipients'   => $recipients,
+            'contact_type' => $contactType,
+            'from_id'      => $fromId,
+            'body_vars'    => $payload['body_vars'] ?? null,
+            'header_var'   => $payload['header_var'] ?? null,
+            'cta_var'      => $payload['cta_var'] ?? null,
+            'file'         => $payload['file'] ?? null,
+        ]);
+
+        $response = $this->request('POST', '/whatsapp-messages/send-template', $payload, $apiToken);
+
+        Log::info('Wasapi POST /whatsapp-messages/send-template response', [
+            'template_id' => $templateUuid,
+            'recipients'  => $recipients,
+            'response'    => $response,
+        ]);
+
+        return $response;
+    }
+
+    /**
+     * Envía plantilla usando el UUID guardado en una plantilla local por nombre de categoría.
+     *
+     * @param  string|array<int, string>  $recipients
+     * @param  array{
+     *     body_vars?: array<int, mixed>|list<array{text: string, val: string}>,
+     *     header_var?: array<int, mixed>|list<array{text: string, val: string}>,
+     *     cta_var?: array<int, mixed>|list<array{text: string, val: string}>,
+     *     file?: string|null,
+     *     url_file?: string|null,
+     *     file_name?: string|null,
+     *     contact_type?: string,
+     *     from_id?: int|null,
+     *     chatbot_status?: string|null,
+     *     conversation_status?: string|null,
+     * }  $options
+     * @return array<string, mixed>
+     */
+    public function sendWhatsAppTemplateByCategory(
+        string $categoryName,
+        string|array $recipients,
+        array $options = [],
+        ?string $apiToken = null
+    ): array {
+        $template = $this->resolveTemplateByCategoryName($categoryName);
+
+        if ($template === null || trim((string) $template->uuid) === '') {
+            throw new \RuntimeException("No hay plantilla guardada con UUID para la categoría «{$categoryName}».");
+        }
+
+        return $this->sendWhatsAppTemplate(array_merge($options, [
+            'template_id' => $template->uuid,
+            'recipients'  => $recipients,
+        ]), $apiToken);
+    }
+
+    /**
+     * Notifica al sender que el receiver le solicitó una remesa (plantilla «Solicitud Remesas»).
+     *
+     * @return array{sent: bool, error: string|null}
+     */
+    public function notifyTransferRequestToSender(
+        string $senderPhone,
+        string $receiverName,
+        float|string $amount
+    ): array {
+        $result = ['sent' => false, 'error' => null];
+
+        if (! $this->isConfigured()) {
+            Log::debug('Wasapi notifyTransferRequestToSender: omitido (sin configuración).');
+
+            return $result;
+        }
+
+        $receiverName = trim($receiverName);
+        if ($receiverName === '') {
+            $receiverName = 'Usuario';
+        }
+
+        $amountFormatted = number_format((float) $amount, 2, '.', '');
+
+        try {
+            $response = $this->sendWhatsAppTemplateByCategory(
+                self::CATEGORY_SOLICITUD_REMESA,
+                $senderPhone,
+                [
+                    'contact_type' => 'phone',
+                    'body_vars'    => [$receiverName, $amountFormatted],
+                ]
+            );
+            $result['sent'] = true;
+            Log::info('Wasapi notifyTransferRequestToSender response', [
+                'sender_phone'  => $senderPhone,
+                'receiver_name' => $receiverName,
+                'amount'        => $amountFormatted,
+                'response'      => $response,
+            ]);
+        } catch (\Throwable $e) {
+            $result['error'] = $e->getMessage();
+            Log::warning('Wasapi notifyTransferRequestToSender falló', [
+                'sender_phone'  => $senderPhone,
+                'receiver_name' => $receiverName,
+                'amount'        => $amountFormatted,
+                'message'       => $e->getMessage(),
+            ]);
+        }
+
+        return $result;
+    }
+
+    private function resolveTemplateByCategoryName(string $categoryName): ?WasapiWhatsappTemplate
+    {
+        $names = array_values(array_unique([$categoryName, ...self::CATEGORY_SOLICITUD_REMESA_ALIASES]));
+
+        foreach ($names as $name) {
+            $template = WasapiWhatsappTemplate::findByCategoryName($name);
+            if ($template !== null) {
+                return $template;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  string|array<int, string>  $recipients
+     */
+    private function normalizeTemplateRecipients(string|array $recipients): string
+    {
+        $list = is_array($recipients) ? $recipients : explode(',', (string) $recipients);
+        $normalized = [];
+
+        foreach ($list as $item) {
+            $item = trim((string) $item);
+            if ($item === '') {
+                continue;
+            }
+            $normalized[] = $this->normalizeWaDigits($item) ?: $item;
+        }
+
+        $normalized = array_values(array_unique($normalized));
+
+        if ($normalized === []) {
+            return '';
+        }
+
+        if (count($normalized) > 20) {
+            throw new \InvalidArgumentException('Wasapi permite máximo 20 destinatarios por envío de plantilla.');
+        }
+
+        return implode(',', $normalized);
+    }
+
+    /**
+     * Acepta variables en formato Wasapi [{text, val}] o lista simple de valores ({{1}}, {{2}}, …).
+     *
+     * @param  array<int, mixed>  $vars
+     * @return list<array{text: string, val: string}>
+     */
+    private function normalizeTemplateVars(array $vars): array
+    {
+        $out = [];
+
+        foreach ($vars as $key => $value) {
+            if (is_array($value) && isset($value['text'], $value['val'])) {
+                $out[] = [
+                    'text' => (string) $value['text'],
+                    'val'  => (string) $value['val'],
+                ];
+                continue;
+            }
+
+            if (is_string($key) && str_contains($key, '{{')) {
+                $out[] = ['text' => $key, 'val' => (string) $value];
+                continue;
+            }
+
+            if (is_int($key) || (is_string($key) && ctype_digit($key))) {
+                $index = (int) $key;
+                $placeholder = '{{'.($index + 1).'}}';
+                $out[] = ['text' => $placeholder, 'val' => (string) $value];
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -246,7 +586,35 @@ class WasapiService
             $response->throw();
         }
 
-        return $response->json() ?? [];
+        $json = $response->json() ?? [];
+        $this->logWasapiResponse($method, $path, $response->status(), $json);
+
+        return $json;
+    }
+
+    /**
+     * @param  array<string, mixed>  $json
+     */
+    private function logWasapiResponse(string $method, string $path, int $status, array $json): void
+    {
+        if (strtoupper($method) === 'GET' && isset($json['data']) && is_array($json['data'])) {
+            Log::info('Wasapi HTTP response', [
+                'method'     => $method,
+                'path'       => $path,
+                'status'     => $status,
+                'success'    => $json['success'] ?? null,
+                'data_count' => count($json['data']),
+            ]);
+
+            return;
+        }
+
+        Log::info('Wasapi HTTP response', [
+            'method'   => $method,
+            'path'     => $path,
+            'status'   => $status,
+            'response' => $json,
+        ]);
     }
 
     private function resolveApiToken(?string $override = null): ?string

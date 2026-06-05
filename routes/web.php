@@ -9,6 +9,7 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\WasapiController;
 use App\Http\Controllers\AlfredController;
 use App\Http\Controllers\Admin\AlfredOrderController;
+use App\Http\Controllers\Admin\TransferRequestController;
 
 /*Route::get('/', function () {
     return view('welcome');
@@ -68,6 +69,9 @@ Route::middleware(['auth', 'role'])->prefix('admin')->name('admin.')->group(func
     Route::get('/orders', [AlfredOrderController::class, 'index'])->name('orders.index');
     Route::get('/orders/{order}', [AlfredOrderController::class, 'show'])->name('orders.show');
 
+    Route::get('/transfer-requests', [TransferRequestController::class, 'index'])->name('transfer-requests.index');
+    Route::patch('/transfer-requests/{transferRequest}/cancel', [TransferRequestController::class, 'cancel'])->name('transfer-requests.cancel');
+
     Route::get('/settings', function () {
         return view('admin.settings');
     })->name('settings');
@@ -78,6 +82,14 @@ Route::middleware(['auth', 'role'])->prefix('admin')->name('admin.')->group(func
         Route::post('/sync-lines', [WasapiController::class, 'syncLines'])->name('sync');
         Route::post('/default-line', [WasapiController::class, 'setDefaultLine'])->name('default');
         Route::post('/test-message', [WasapiController::class, 'sendTestMessage'])->name('test-message');
+        Route::get('/templates', [WasapiController::class, 'templatesIndex'])->name('templates.index');
+        Route::post('/templates/fetch', [WasapiController::class, 'fetchTemplates'])->name('templates.fetch');
+        Route::post('/templates/save', [WasapiController::class, 'saveTemplates'])->name('templates.save');
+        Route::post('/templates/assign-category', [WasapiController::class, 'assignTemplateCategory'])->name('templates.assign-category');
+        Route::delete('/templates/{template}', [WasapiController::class, 'destroySavedTemplate'])->name('templates.destroy');
+        Route::get('/template-categories', [WasapiController::class, 'templateCategoriesIndex'])->name('template-categories.index');
+        Route::post('/template-categories', [WasapiController::class, 'storeTemplateCategory'])->name('template-categories.store');
+        Route::delete('/template-categories/{category}', [WasapiController::class, 'destroyTemplateCategory'])->name('template-categories.destroy');
     });
 
     // Rutas de perfil del usuario autenticado

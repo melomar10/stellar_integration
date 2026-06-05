@@ -724,6 +724,83 @@
                 }
             }
         },
+        "/api/alfred/orders/complete": {
+            "post": {
+                "tags": [
+                    "Alfred"
+                ],
+                "summary": "Completar orden (callback Alfred)",
+                "description": "Alfred notifica el resultado de la transacción. Actualiza status por order_id (completed por defecto; luego refunded, reversed, etc.).",
+                "operationId": "alfredCompleteOrder",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "order_id"
+                                ],
+                                "properties": {
+                                    "order_id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "example": "b586dddf-c6c8-487a-9371-3c2d0c0b432a"
+                                    },
+                                    "status": {
+                                        "description": "Estado final: completed (default), refunded, reversed, failed, etc.",
+                                        "type": "string",
+                                        "example": "completed"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Orden marcada como completada",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "order_id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "example": "completed"
+                                        },
+                                        "already_completed": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "order": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Orden no encontrada"
+                    },
+                    "422": {
+                        "description": "Validación"
+                    },
+                    "500": {
+                        "description": "Error interno"
+                    }
+                }
+            }
+        },
         "/api/payment-method": {
             "post": {
                 "tags": [
@@ -1613,6 +1690,177 @@
                 "responses": {
                     "200": {
                         "description": "Link generado"
+                    }
+                }
+            }
+        },
+        "/api/alfred/transfer-requests": {
+            "post": {
+                "tags": [
+                    "Alfred"
+                ],
+                "summary": "Crear solicitud de transferencia",
+                "description": "Registra una solicitud de transferencia entre sender y receiver por teléfono. Estado inicial: solicitada.",
+                "operationId": "alfredCreateTransferRequest",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "sender_phone",
+                                    "receiver_phone",
+                                    "amount"
+                                ],
+                                "properties": {
+                                    "sender_phone": {
+                                        "description": "Teléfono del remitente",
+                                        "type": "string",
+                                        "example": "18093901572"
+                                    },
+                                    "receiver_phone": {
+                                        "description": "Teléfono del destinatario",
+                                        "type": "string",
+                                        "example": "18294428902"
+                                    },
+                                    "amount": {
+                                        "description": "Monto solicitado en USD",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 150
+                                    },
+                                    "currency": {
+                                        "description": "Moneda (default USD)",
+                                        "type": "string",
+                                        "example": "USD"
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "example": "Transferencia familiar",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Solicitud creada",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "transfer_request": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "uuid": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                },
+                                                "sender_phone": {
+                                                    "type": "string",
+                                                    "example": "18093901572"
+                                                },
+                                                "receiver_phone": {
+                                                    "type": "string",
+                                                    "example": "18294428902"
+                                                },
+                                                "amount": {
+                                                    "type": "string",
+                                                    "example": "150.00"
+                                                },
+                                                "currency": {
+                                                    "type": "string",
+                                                    "example": "USD"
+                                                },
+                                                "status": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "solicitada",
+                                                        "rechazada",
+                                                        "aprobado",
+                                                        "completada",
+                                                        "cancelada"
+                                                    ],
+                                                    "example": "solicitada"
+                                                },
+                                                "sender_customer_id": {
+                                                    "type": "string",
+                                                    "format": "uuid",
+                                                    "nullable": true
+                                                },
+                                                "receiver_customer_id": {
+                                                    "type": "string",
+                                                    "format": "uuid",
+                                                    "nullable": true
+                                                },
+                                                "notes": {
+                                                    "type": "string",
+                                                    "nullable": true
+                                                },
+                                                "created_at": {
+                                                    "type": "string",
+                                                    "format": "date-time"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validación",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Error de validación"
+                                        },
+                                        "errors": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Error interno",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 }
             }
