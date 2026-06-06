@@ -463,7 +463,7 @@ class TransferRequestController extends Controller
         }
 
         $withoutLeadingOne = ltrim($normalized, '1');
-        $digitsOnly = "REGEXP_REPLACE({$column}, '[^0-9]', '')";
+        $digitsOnly = $this->sqlPhoneDigitsExpression($column);
         $variants = array_values(array_unique([
             $normalized,
             $withoutLeadingOne,
@@ -476,6 +476,18 @@ class TransferRequestController extends Controller
                 ->orWhereRaw("{$digitsOnly} = ?", [$withoutLeadingOne])
                 ->orWhereRaw("{$digitsOnly} = ?", ['1'.$withoutLeadingOne]);
         });
+    }
+
+    /** Expresión SQL compatible con MySQL 5.7 / MariaDB (sin REGEXP_REPLACE). */
+    private function sqlPhoneDigitsExpression(string $column): string
+    {
+        $expression = $column;
+
+        foreach (['+', '-', ' ', '(', ')', '.'] as $char) {
+            $expression = "REPLACE({$expression}, '{$char}', '')";
+        }
+
+        return $expression;
     }
 
     private function extractClientDisplayName(?Client $client): ?string
