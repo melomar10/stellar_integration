@@ -224,7 +224,7 @@ class TransferRequestController extends Controller
                 return [
                     'id'              => $row->id,
                     'uuid'            => $row->uuid,
-                    'requester_name'  => $this->resolveDisplayNameByPhone($row->receiver_phone),
+                    'requester_name'  => $this->resolveDisplayNameByPhone($row->receiver_phone, $row->receiver_customer_id),
                     'requester_phone' => $row->receiver_phone,
                     'amount'          => $row->formattedAmount(),
                     'currency'        => $row->currency,
@@ -369,41 +369,143 @@ class TransferRequestController extends Controller
 
     private function resolveCustomerIdByPhone(string $phone): ?string
     {
-        $client = Client::where('phone', $phone)->with('alfredAccount')->first();
+        $client = $this->findClientByPhone($phone);
         $alfredAccount = $client?->alfredAccount;
 
-        if (!$alfredAccount) {
-            $alfredAccount = AlfredAccount::where('phone', $phone)->first();
+        if ($alfredAccount === null) {
+            $alfredAccount = $this->findAlfredAccountByPhone($phone);
         }
 
-        if (!$alfredAccount || empty($alfredAccount->alfred_customer_id)) {
+        if ($alfredAccount === null || empty($alfredAccount->alfred_customer_id)) {
             return null;
         }
 
         return (string) $alfredAccount->alfred_customer_id;
     }
 
-    private function resolveDisplayNameByPhone(string $phone): string
+    private function resolveDisplayNameByPhone(string $phone, ?string $alfredCustomerId = null): string
     {
-        $client = Client::where('phone', $phone)->first();
-        if ($client) {
-            $name = trim(((string) ($client->name ?? '')).' '.((string) ($client->last_name ?? '')));
-            if ($name !== '') {
+        if ($alfredCustomerId !== null && trim($alfredCustomerId) !== '') {
+            $name = $this->resolveDisplayNameByAlfredCustomerId(trim($alfredCustomerId));
+            if ($name !== null) {
                 return $name;
             }
         }
 
-        $alfredAccount = AlfredAccount::where('phone', $phone)->first();
-        if ($alfredAccount) {
-            $name = trim(((string) ($alfredAccount->first_name ?? '')).' '.((string) ($alfredAccount->last_name ?? '')));
-            if ($name !== '') {
+        $client = $this->findClientByPhone($phone);
+        if ($client !== null) {
+            $name = $this->extractClientDisplayName($client);
+            if ($name !== null) {
                 return $name;
             }
-            if (! empty($alfredAccount->full_name)) {
-                return trim((string) $alfredAccount->full_name);
+
+            $name = $this->extractAlfredAccountDisplayName($client->alfredAccount);
+            if ($name !== null) {
+                return $name;
             }
         }
 
-        return $phone;
+        $alfredAccount = $this->findAlfredAccountByPhone($phone);
+        if ($alfredAccount !== null) {
+            $name = $this->extractAlfredAccountDisplayName($alfredAccount);
+            if ($name !== null) {
+                return $name;
+            }
+
+            $name = $this->extractClientDisplayName($alfredAccount->client);
+            if ($name !== null) {
+                return $name;
+            }
+        }
+
+        $normalizedPhone = TransferRequest::normalizePhone($phone);
+
+        return $normalizedPhone !== '' ? $normalizedPhone : $phone;
+    }
+
+    private function resolveDisplayNameByAlfredCustomerId(string $alfredCustomerId): ?string
+    {
+        $alfredAccount = AlfredAccount::query()
+            ->where('alfred_customer_id', $alfredCustomerId)
+            ->first();
+
+        if ($alfredAccount === null) {
+            return null;
+        }
+
+        $name = $this->extractAlfredAccountDisplayName($alfredAccount);
+        if ($name !== null) {
+            return $name;
+        }
+
+        return $this->extractClientDisplayName($alfredAccount->client);
+    }
+
+    private function findClientByPhone(string $phone): ?Client
+    {
+        return $this->applyPhoneMatch(Client::query()->with('alfredAccount'), 'phone', $phone)->first();
+    }
+
+    private function findAlfredAccountByPhone(string $phone): ?AlfredAccount
+    {
+        return $this->applyPhoneMatch(AlfredAccount::query()->with('client'), 'phone', $phone)->first();
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<\Illuminate\Database\Eloquent\Model>
+     */
+    private function applyPhoneMatch($query, string $column, string $phone)
+    {
+        $normalized = TransferRequest::normalizePhone($phone);
+        if ($normalized === '') {
+            return $query->whereRaw('0 = 1');
+        }
+
+        $withoutLeadingOne = ltrim($normalized, '1');
+        $digitsOnly = "REGEXP_REPLACE({$column}, '[^0-9]', '')";
+        $variants = array_values(array_unique([
+            $normalized,
+            $withoutLeadingOne,
+            '1'.$withoutLeadingOne,
+        ]));
+
+        return $query->where(function ($inner) use ($column, $variants, $digitsOnly, $normalized, $withoutLeadingOne) {
+            $inner->whereIn($column, $variants)
+                ->orWhereRaw("{$digitsOnly} = ?", [$normalized])
+                ->orWhereRaw("{$digitsOnly} = ?", [$withoutLeadingOne])
+                ->orWhereRaw("{$digitsOnly} = ?", ['1'.$withoutLeadingOne]);
+        });
+    }
+
+    private function extractClientDisplayName(?Client $client): ?string
+    {
+        if ($client === null) {
+            return null;
+        }
+
+        $name = trim(((string) ($client->name ?? '')).' '.((string) ($client->last_name ?? '')));
+
+        return $name !== '' ? $name : null;
+    }
+
+    private function extractAlfredAccountDisplayName(?AlfredAccount $alfredAccount): ?string
+    {
+        if ($alfredAccount === null) {
+            return null;
+        }
+
+        $name = trim(((string) ($alfredAccount->first_name ?? '')).' '.((string) ($alfredAccount->last_name ?? '')));
+        if ($name !== '') {
+            return $name;
+        }
+
+        if (! empty($alfredAccount->full_name)) {
+            $fullName = trim((string) $alfredAccount->full_name);
+
+            return $fullName !== '' ? $fullName : null;
+        }
+
+        return null;
     }
 }
