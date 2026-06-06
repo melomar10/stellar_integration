@@ -12,6 +12,8 @@ class WasapiService
 {
     public const CATEGORY_SOLICITUD_REMESA = 'Solicitud Remesas';
 
+    public const CATEGORY_SOLICITUD_CANCELADA = 'Solicitud Cancelada';
+
     /** @var list<string> */
     private const CATEGORY_SOLICITUD_REMESA_ALIASES = [
         'Solicitud Remesas',
@@ -388,9 +390,75 @@ class WasapiService
         return $result;
     }
 
+    /**
+     * Notifica al receiver que el sender canceló la solicitud (plantilla «Solicitud Cancelada»).
+     *
+     * @return array{sent: bool, error: string|null}
+     */
+    public function notifyTransferRequestCancelledToReceiver(
+        string $receiverPhone,
+        string $receiverName,
+        string $senderName,
+        float|string $amount
+    ): array {
+        $result = ['sent' => false, 'error' => null];
+
+        if (! $this->isConfigured()) {
+            Log::debug('Wasapi notifyTransferRequestCancelledToReceiver: omitido (sin configuración).');
+
+            return $result;
+        }
+
+        $receiverName = trim($receiverName);
+        if ($receiverName === '') {
+            $receiverName = 'Usuario';
+        }
+
+        $senderName = trim($senderName);
+        if ($senderName === '') {
+            $senderName = 'Usuario';
+        }
+
+        $amountFormatted = number_format((float) $amount, 2, '.', '');
+
+        try {
+            $response = $this->sendWhatsAppTemplateByCategory(
+                self::CATEGORY_SOLICITUD_CANCELADA,
+                $receiverPhone,
+                [
+                    'contact_type' => 'phone',
+                    'body_vars'    => [$receiverName, $senderName, $amountFormatted],
+                ]
+            );
+            $result['sent'] = true;
+            Log::info('Wasapi notifyTransferRequestCancelledToReceiver response', [
+                'receiver_phone' => $receiverPhone,
+                'receiver_name'  => $receiverName,
+                'sender_name'    => $senderName,
+                'amount'         => $amountFormatted,
+                'response'       => $response,
+            ]);
+        } catch (\Throwable $e) {
+            $result['error'] = $e->getMessage();
+            Log::warning('Wasapi notifyTransferRequestCancelledToReceiver falló', [
+                'receiver_phone' => $receiverPhone,
+                'receiver_name'  => $receiverName,
+                'sender_name'    => $senderName,
+                'amount'         => $amountFormatted,
+                'message'        => $e->getMessage(),
+            ]);
+        }
+
+        return $result;
+    }
+
     private function resolveTemplateByCategoryName(string $categoryName): ?WasapiWhatsappTemplate
     {
-        $names = array_values(array_unique([$categoryName, ...self::CATEGORY_SOLICITUD_REMESA_ALIASES]));
+        $names = [$categoryName];
+        if ($categoryName === self::CATEGORY_SOLICITUD_REMESA
+            || in_array($categoryName, self::CATEGORY_SOLICITUD_REMESA_ALIASES, true)) {
+            $names = array_values(array_unique([$categoryName, ...self::CATEGORY_SOLICITUD_REMESA_ALIASES]));
+        }
 
         foreach ($names as $name) {
             $template = WasapiWhatsappTemplate::findByCategoryName($name);

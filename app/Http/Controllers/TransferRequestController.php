@@ -158,6 +158,215 @@ class TransferRequestController extends Controller
         }
     }
 
+    /**
+     * @OA\Get(
+     *     path="/api/alfred/transfer-requests/by-sender",
+     *     summary="Consultar solicitudes de transferencia por teléfono del remitente",
+     *     description="Devuelve las solicitudes activas (solicitada, aprobada) donde el sender debe enviar. El solicitante es el receiver de cada registro.",
+     *     operationId="alfredTransferRequestsBySender",
+     *     tags={"Alfred"},
+     *     @OA\Parameter(
+     *         name="sender_phone",
+     *         in="query",
+     *         required=true,
+     *         description="Teléfono del remitente (sender)",
+     *         @OA\Schema(type="string", example="18093901572")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Consulta exitosa",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="ok", type="boolean", example=true),
+     *             @OA\Property(property="sender_phone", type="string", example="18093901572"),
+     *             @OA\Property(property="has_requests", type="boolean", example=true),
+     *             @OA\Property(property="count", type="integer", example=1),
+     *             @OA\Property(
+     *                 property="requests",
+     *                 type="array",
+     *                 @OA\Items(
+     *                     @OA\Property(property="id", type="integer"),
+     *                     @OA\Property(property="uuid", type="string", format="uuid"),
+     *                     @OA\Property(property="requester_name", type="string", example="Dariel Abreu"),
+     *                     @OA\Property(property="requester_phone", type="string", example="18294428902"),
+     *                     @OA\Property(property="amount", type="string", example="150.00"),
+     *                     @OA\Property(property="currency", type="string", example="USD"),
+     *                     @OA\Property(property="status", type="string", example="solicitada"),
+     *                     @OA\Property(property="created_at", type="string", format="date-time")
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=422, description="Validación")
+     * )
+     */
+    public function indexBySender(Request $req)
+    {
+        try {
+            $data = $req->validate([
+                'sender_phone' => 'required|string|min:7',
+            ]);
+
+            $senderPhone = TransferRequest::normalizePhone((string) $data['sender_phone']);
+            if ($senderPhone === '') {
+                return response()->json([
+                    'ok'      => false,
+                    'message' => 'Teléfono del remitente inválido.',
+                ], 422);
+            }
+
+            $rows = TransferRequest::query()
+                ->where('sender_phone', $senderPhone)
+                ->whereIn('status', TransferRequest::ACTIVE_STATUSES)
+                ->orderByDesc('created_at')
+                ->get();
+
+            $requests = $rows->map(function (TransferRequest $row) {
+                return [
+                    'id'              => $row->id,
+                    'uuid'            => $row->uuid,
+                    'requester_name'  => $this->resolveDisplayNameByPhone($row->receiver_phone),
+                    'requester_phone' => $row->receiver_phone,
+                    'amount'          => $row->formattedAmount(),
+                    'currency'        => $row->currency,
+                    'status'          => $row->status,
+                    'created_at'      => $row->created_at?->toIso8601String(),
+                ];
+            })->values()->all();
+
+            return response()->json([
+                'ok'           => true,
+                'sender_phone' => $senderPhone,
+                'has_requests' => count($requests) > 0,
+                'count'        => count($requests),
+                'requests'     => $requests,
+            ], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Error de validación',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('TransferRequest indexBySender error', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'ok'      => false,
+                'message' => 'No se pudieron consultar las solicitudes.',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/alfred/transfer-requests/cancel",
+     *     summary="Cancelar solicitud de transferencia por sender y UUID",
+     *     description="Busca la solicitud por UUID y teléfono del remitente (sender) y la marca como cancelada.",
+     *     operationId="alfredCancelTransferRequest",
+     *     tags={"Alfred"},
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"sender_phone", "uuid"},
+     *             @OA\Property(property="sender_phone", type="string", example="18093901572"),
+     *             @OA\Property(property="uuid", type="string", format="uuid", example="a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Solicitud cancelada",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="ok", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Solicitud cancelada correctamente."),
+     *             @OA\Property(property="whatsapp_sent", type="boolean", example=true, description="Plantilla Solicitud Cancelada enviada al receiver"),
+     *             @OA\Property(property="whatsapp_error", type="string", nullable=true),
+     *             @OA\Property(property="transfer_request", type="object")
+     *         )
+     *     ),
+     *     @OA\Response(response=404, description="Solicitud no encontrada"),
+     *     @OA\Response(response=422, description="No se puede cancelar o validación")
+     * )
+     */
+    public function cancelBySender(Request $req, WasapiService $wasapi)
+    {
+        try {
+            $data = $req->validate([
+                'sender_phone' => 'required|string|min:7',
+                'uuid'         => 'required|string|uuid',
+            ]);
+
+            $senderPhone = TransferRequest::normalizePhone((string) $data['sender_phone']);
+            if ($senderPhone === '') {
+                return response()->json([
+                    'ok'      => false,
+                    'message' => 'Teléfono del remitente inválido.',
+                ], 422);
+            }
+
+            $transferRequest = TransferRequest::query()
+                ->where('uuid', $data['uuid'])
+                ->where('sender_phone', $senderPhone)
+                ->first();
+
+            if ($transferRequest === null) {
+                return response()->json([
+                    'ok'      => false,
+                    'message' => 'No se encontró una solicitud con ese UUID para el teléfono indicado.',
+                ], 404);
+            }
+
+            if (! $transferRequest->canBeCancelled()) {
+                return response()->json([
+                    'ok'      => false,
+                    'message' => 'Esta solicitud no puede cancelarse en su estado actual.',
+                    'status'  => $transferRequest->status,
+                ], 422);
+            }
+
+            $transferRequest->update(['status' => TransferRequest::STATUS_CANCELADA]);
+
+            Log::info('Transfer request cancelled via API', [
+                'uuid'         => $transferRequest->uuid,
+                'sender_phone' => $senderPhone,
+            ]);
+
+            $receiverName = $this->resolveDisplayNameByPhone($transferRequest->receiver_phone);
+            $senderName = $this->resolveDisplayNameByPhone($transferRequest->sender_phone);
+            $whatsapp = $wasapi->notifyTransferRequestCancelledToReceiver(
+                $transferRequest->receiver_phone,
+                $receiverName,
+                $senderName,
+                $transferRequest->amount
+            );
+
+            return response()->json([
+                'ok'               => true,
+                'message'          => 'Solicitud cancelada correctamente.',
+                'whatsapp_sent'    => $whatsapp['sent'],
+                'whatsapp_error'   => $whatsapp['error'],
+                'transfer_request' => $transferRequest->fresh(),
+            ], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Error de validación',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('TransferRequest cancelBySender error', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'ok'      => false,
+                'message' => 'No se pudo cancelar la solicitud.',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     private function resolveCustomerIdByPhone(string $phone): ?string
     {
         $client = Client::where('phone', $phone)->with('alfredAccount')->first();

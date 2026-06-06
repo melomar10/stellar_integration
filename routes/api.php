@@ -41,6 +41,8 @@ Route::prefix('alfred')->group(function () {
     Route::post('orders/confirm-by-phone',            [AlfredController::class, 'confirmOrderByPhone']);
     Route::post('orders/complete',                    [AlfredController::class, 'completeOrder']);
     Route::post('transfer-requests',                  [TransferRequestController::class, 'store']);
+    Route::get('transfer-requests/by-sender',         [TransferRequestController::class, 'indexBySender']);
+    Route::post('transfer-requests/cancel',            [TransferRequestController::class, 'cancelBySender']);
     Route::get('customer/{customerId}/bank-details',  [AlfredController::class, 'getBankDetails']);
     Route::post('customer/{customerId}/bank-details', [AlfredController::class, 'storeBankDetail']);
     Route::post('onramp',                             [AlfredController::class, 'createOnramp']);

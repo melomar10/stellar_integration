@@ -25,6 +25,12 @@ class TransferRequest extends Model
         self::STATUS_CANCELADA,
     ];
 
+    /** Estados considerados activos (pendientes de acción del sender). */
+    public const ACTIVE_STATUSES = [
+        self::STATUS_SOLICITADA,
+        self::STATUS_APROBADO,
+    ];
+
     protected $fillable = [
         'uuid',
         'sender_phone',

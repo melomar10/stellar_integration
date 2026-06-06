@@ -1756,6 +1756,11 @@
                                             "type": "boolean",
                                             "example": true
                                         },
+                                        "whatsapp_sent": {
+                                            "description": "Plantilla Solicitud Remesas enviada al sender",
+                                            "type": "boolean",
+                                            "example": true
+                                        },
                                         "transfer_request": {
                                             "properties": {
                                                 "id": {
@@ -1861,6 +1866,175 @@
                                 }
                             }
                         }
+                    }
+                }
+            }
+        },
+        "/api/alfred/transfer-requests/by-sender": {
+            "get": {
+                "tags": [
+                    "Alfred"
+                ],
+                "summary": "Consultar solicitudes de transferencia por teléfono del remitente",
+                "description": "Devuelve las solicitudes activas (solicitada, aprobada) donde el sender debe enviar. El solicitante es el receiver de cada registro.",
+                "operationId": "alfredTransferRequestsBySender",
+                "parameters": [
+                    {
+                        "name": "sender_phone",
+                        "in": "query",
+                        "description": "Teléfono del remitente (sender)",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "18093901572"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Consulta exitosa",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "sender_phone": {
+                                            "type": "string",
+                                            "example": "18093901572"
+                                        },
+                                        "has_requests": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "count": {
+                                            "type": "integer",
+                                            "example": 1
+                                        },
+                                        "requests": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "uuid": {
+                                                        "type": "string",
+                                                        "format": "uuid"
+                                                    },
+                                                    "requester_name": {
+                                                        "type": "string",
+                                                        "example": "Dariel Abreu"
+                                                    },
+                                                    "requester_phone": {
+                                                        "type": "string",
+                                                        "example": "18294428902"
+                                                    },
+                                                    "amount": {
+                                                        "type": "string",
+                                                        "example": "150.00"
+                                                    },
+                                                    "currency": {
+                                                        "type": "string",
+                                                        "example": "USD"
+                                                    },
+                                                    "status": {
+                                                        "type": "string",
+                                                        "example": "solicitada"
+                                                    },
+                                                    "created_at": {
+                                                        "type": "string",
+                                                        "format": "date-time"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validación"
+                    }
+                }
+            }
+        },
+        "/api/alfred/transfer-requests/cancel": {
+            "post": {
+                "tags": [
+                    "Alfred"
+                ],
+                "summary": "Cancelar solicitud de transferencia por sender y UUID",
+                "description": "Busca la solicitud por UUID y teléfono del remitente (sender) y la marca como cancelada.",
+                "operationId": "alfredCancelTransferRequest",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "sender_phone",
+                                    "uuid"
+                                ],
+                                "properties": {
+                                    "sender_phone": {
+                                        "type": "string",
+                                        "example": "18093901572"
+                                    },
+                                    "uuid": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Solicitud cancelada",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Solicitud cancelada correctamente."
+                                        },
+                                        "whatsapp_sent": {
+                                            "description": "Plantilla Solicitud Cancelada enviada al receiver",
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "whatsapp_error": {
+                                            "type": "string",
+                                            "nullable": true
+                                        },
+                                        "transfer_request": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Solicitud no encontrada"
+                    },
+                    "422": {
+                        "description": "No se puede cancelar o validación"
                     }
                 }
             }
