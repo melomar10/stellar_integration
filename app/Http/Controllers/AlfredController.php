@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AlfredOrder;
 use App\Models\AlfredAccount;
 use App\Models\Client;
+use App\Models\TransferRequest;
 use App\Services\AlfredService;
 use App\Services\FlowService;
 use App\Services\WasapiService;
@@ -392,6 +393,7 @@ class AlfredController extends Controller
         try {
             $data = $req->validate([
                 'phone' => 'required|string|min:7',
+                'role' => 'nullable|string|in:sender,receiver',
             ]);
 
             $raw   = preg_replace('/[^0-9]/', '', (string) $data['phone']);
@@ -413,7 +415,7 @@ class AlfredController extends Controller
 
             $customerId = (string) $alfredAccount->alfred_customer_id;
 
-            $params = $alfred->defaultKycRampParams('receiver');
+            $params = $alfred->defaultKycRampParams( $data['role'] ?? 'receiver');
 
             Log::debug('Alfred kycStatusByPhone', ['phone' => $phone, 'customerId' => $customerId, 'params' => $params]);
 
@@ -789,7 +791,19 @@ class AlfredController extends Controller
      *             @OA\Property(property="order_id", type="string", format="uuid"),
      *             @OA\Property(property="status", type="string", example="completed"),
      *             @OA\Property(property="already_completed", type="boolean", example=false),
-     *             @OA\Property(property="order", type="object")
+     *             @OA\Property(property="order", type="object"),
+     *             @OA\Property(property="transfer_request_completed", type="boolean", example=true, description="Si se marcó una solicitud de transferencia como completada"),
+     *             @OA\Property(property="transfer_request", type="object", nullable=true),
+     *             @OA\Property(
+     *                 property="whatsapp",
+     *                 type="object",
+     *                 nullable=true,
+     *                 description="Plantillas enviadas cuando status=completed: Deposito Recibido (sender), Recibir Remesa (receiver)",
+     *                 @OA\Property(property="sender_sent", type="boolean"),
+     *                 @OA\Property(property="receiver_sent", type="boolean"),
+     *                 @OA\Property(property="sender_error", type="string", nullable=true),
+     *                 @OA\Property(property="receiver_error", type="string", nullable=true)
+     *             )
      *         )
      *     ),
      *     @OA\Response(response=404, description="Orden no encontrada"),
@@ -812,6 +826,7 @@ class AlfredController extends Controller
             $result = $alfred->completeOrder($orderId, $status !== '' ? $status : null);
 
             $whatsapp = null;
+            $transferRequest = null;
             if (
                 ! $result['already_completed']
                 && $result['status'] === AlfredOrder::STATUS_COMPLETED
@@ -820,16 +835,40 @@ class AlfredController extends Controller
                 $order = $result['order'];
                 $senderPhone = $alfred->resolvePhoneByAlfredCustomerId((string) $order->sender_customer_id);
                 $receiverPhone = $alfred->resolvePhoneByAlfredCustomerId((string) $order->receiver_customer_id);
-                $whatsapp = $wasapi->notifyOrderTransactionComplete($senderPhone, $receiverPhone);
+                $receiverName = $alfred->resolveDisplayNameByAlfredCustomerId((string) $order->receiver_customer_id);
+
+                $transferRequest = TransferRequest::completeForOrder(
+                    (string) $order->sender_customer_id,
+                    (string) $order->receiver_customer_id,
+                    $senderPhone,
+                    $receiverPhone,
+                    $order->total_amount_value
+                );
+
+                if ($transferRequest !== null) {
+                    Log::info('Transfer request marked as completed from order callback', [
+                        'order_id'              => $order->alfred_order_id,
+                        'transfer_request_uuid' => $transferRequest->uuid,
+                    ]);
+                }
+
+                $whatsapp = $wasapi->notifyOrderTransactionComplete(
+                    $senderPhone,
+                    $receiverPhone,
+                    $order->total_amount_value,
+                    $receiverName
+                );
             }
 
             return response()->json([
-                'ok'                => true,
-                'order_id'          => $result['order_id'],
-                'status'            => $result['status'],
-                'already_completed' => $result['already_completed'],
-                'order'             => $result['order'],
-                'whatsapp'          => $whatsapp,
+                'ok'                         => true,
+                'order_id'                   => $result['order_id'],
+                'status'                     => $result['status'],
+                'already_completed'          => $result['already_completed'],
+                'order'                      => $result['order'],
+                'transfer_request_completed' => $transferRequest !== null,
+                'transfer_request'           => $transferRequest,
+                'whatsapp'                   => $whatsapp,
             ], 200);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -853,6 +892,70 @@ class AlfredController extends Controller
             return response()->json([
                 'ok'      => false,
                 'message' => 'No se pudo completar la orden.',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * @OA\Get(
+     *     path="/api/alfred/orders/completed-count-by-receiver",
+     *     summary="Cantidad de órdenes completadas por teléfono del receiver",
+     *     description="Devuelve cuántas órdenes en estado completed tiene el destinatario (receiver) indicado.",
+     *     operationId="alfredCompletedOrdersCountByReceiver",
+     *     tags={"Alfred"},
+     *     @OA\Parameter(
+     *         name="receiver_phone",
+     *         in="query",
+     *         required=true,
+     *         description="Teléfono del destinatario (receiver)",
+     *         @OA\Schema(type="string", example="18294428902")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Consulta exitosa",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="ok", type="boolean", example=true),
+     *             @OA\Property(property="receiver_phone", type="string", example="18294428902"),
+     *             @OA\Property(property="count", type="integer", example=2, description="Cantidad de órdenes en estado completed")
+     *         )
+     *     ),
+     *     @OA\Response(response=422, description="Validación")
+     * )
+     */
+    public function completedOrdersCountByReceiver(Request $req, AlfredService $alfred)
+    {
+        try {
+            $data = $req->validate([
+                'receiver_phone' => 'required|string|min:7',
+            ]);
+
+            $result = $alfred->countCompletedOrdersByReceiverPhone((string) $data['receiver_phone']);
+
+            return response()->json([
+                'ok'             => true,
+                'receiver_phone' => $result['receiver_phone'],
+                'count'          => $result['count'],
+            ], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Error de validación',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'ok'      => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('Alfred completedOrdersCountByReceiver', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'ok'      => false,
+                'message' => 'No se pudo consultar las órdenes completadas.',
                 'error'   => $e->getMessage(),
             ], 500);
         }

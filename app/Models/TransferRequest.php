@@ -83,6 +83,94 @@ class TransferRequest extends Model
         ], true);
     }
 
+    /**
+     * Marca como completada la solicitud activa que corresponde a una orden Alfred.
+     */
+    public static function completeForOrder(
+        ?string $senderCustomerId,
+        ?string $receiverCustomerId,
+        ?string $senderPhone = null,
+        ?string $receiverPhone = null,
+        float|string|null $amount = null
+    ): ?self {
+        $transferRequest = self::findActiveForOrder(
+            $senderCustomerId,
+            $receiverCustomerId,
+            $senderPhone,
+            $receiverPhone,
+            $amount,
+            true
+        ) ?? self::findActiveForOrder(
+            $senderCustomerId,
+            $receiverCustomerId,
+            $senderPhone,
+            $receiverPhone,
+            $amount,
+            false
+        );
+
+        if ($transferRequest === null) {
+            return null;
+        }
+
+        $transferRequest->update(['status' => self::STATUS_COMPLETADA]);
+
+        return $transferRequest->fresh();
+    }
+
+    private static function findActiveForOrder(
+        ?string $senderCustomerId,
+        ?string $receiverCustomerId,
+        ?string $senderPhone,
+        ?string $receiverPhone,
+        float|string|null $amount,
+        bool $matchAmount
+    ): ?self {
+        $senderCustomerId = trim((string) ($senderCustomerId ?? ''));
+        $receiverCustomerId = trim((string) ($receiverCustomerId ?? ''));
+        $senderPhone = self::normalizePhone((string) ($senderPhone ?? ''));
+        $receiverPhone = self::normalizePhone((string) ($receiverPhone ?? ''));
+
+        if (
+            ($senderCustomerId === '' || $receiverCustomerId === '')
+            && ($senderPhone === '' || $receiverPhone === '')
+        ) {
+            return null;
+        }
+
+        $query = self::query()
+            ->whereIn('status', self::ACTIVE_STATUSES)
+            ->orderByDesc('created_at');
+
+        $query->where(function ($outer) use ($senderCustomerId, $receiverCustomerId, $senderPhone, $receiverPhone) {
+            if ($senderCustomerId !== '' && $receiverCustomerId !== '') {
+                $outer->where(function ($inner) use ($senderCustomerId, $receiverCustomerId) {
+                    $inner->where('sender_customer_id', $senderCustomerId)
+                        ->where('receiver_customer_id', $receiverCustomerId);
+                });
+            }
+
+            if ($senderPhone !== '' && $receiverPhone !== '') {
+                $phoneMatch = function ($inner) use ($senderPhone, $receiverPhone) {
+                    $inner->where('sender_phone', $senderPhone)
+                        ->where('receiver_phone', $receiverPhone);
+                };
+
+                if ($senderCustomerId !== '' && $receiverCustomerId !== '') {
+                    $outer->orWhere($phoneMatch);
+                } else {
+                    $outer->where($phoneMatch);
+                }
+            }
+        });
+
+        if ($matchAmount && $amount !== null && $amount !== '') {
+            $query->where('amount', number_format((float) $amount, 2, '.', ''));
+        }
+
+        return $query->first();
+    }
+
     public function toArray(): array
     {
         $array = parent::toArray();

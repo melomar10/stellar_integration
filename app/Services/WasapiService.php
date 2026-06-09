@@ -14,6 +14,10 @@ class WasapiService
 
     public const CATEGORY_SOLICITUD_CANCELADA = 'Solicitud Cancelada';
 
+    public const CATEGORY_DEPOSITO_RECIBIDO = 'Deposito Recibido';
+
+    public const CATEGORY_RECIBIR_REMESA = 'Recibir Remesa';
+
     /** @var list<string> */
     private const CATEGORY_SOLICITUD_REMESA_ALIASES = [
         'Solicitud Remesas',
@@ -563,15 +567,28 @@ class WasapiService
     /**
      * Notifica por WhatsApp al sender y receiver cuando la orden se completa.
      *
-     * @return array{sender_sent: bool, receiver_sent: bool, sender_phone: string|null, receiver_phone: string|null}
+     * @return array{
+     *     sender_sent: bool,
+     *     receiver_sent: bool,
+     *     sender_phone: string|null,
+     *     receiver_phone: string|null,
+     *     sender_error: string|null,
+     *     receiver_error: string|null
+     * }
      */
-    public function notifyOrderTransactionComplete(?string $senderPhone, ?string $receiverPhone): array
-    {
+    public function notifyOrderTransactionComplete(
+        ?string $senderPhone,
+        ?string $receiverPhone,
+        float|string|null $amount,
+        ?string $receiverName = null
+    ): array {
         $result = [
             'sender_sent'    => false,
             'receiver_sent'  => false,
             'sender_phone'   => $senderPhone,
             'receiver_phone' => $receiverPhone,
+            'sender_error'   => null,
+            'receiver_error' => null,
         ];
 
         if (! $this->isConfigured()) {
@@ -580,14 +597,31 @@ class WasapiService
             return $result;
         }
 
-        $senderMessage = 'Completaste tu transaccion. gracias por utilizar el servicio de Domipago';
-        $receiverMessage = 'Se completo el envio, vas a recibir el dinero en la cuenta que registraste en las proximas horas.gracias por utilizar el servicio de Domipago';
+        $amountFormatted = number_format((float) ($amount ?? 0), 2, '.', '');
+        $receiverName = trim((string) ($receiverName ?? ''));
+        if ($receiverName === '') {
+            $receiverName = 'Usuario';
+        }
 
         if ($senderPhone !== null && $senderPhone !== '') {
             try {
-                $this->sendTextMessage($senderPhone, $senderMessage);
+                $response = $this->sendWhatsAppTemplateByCategory(
+                    self::CATEGORY_DEPOSITO_RECIBIDO,
+                    $senderPhone,
+                    [
+                        'contact_type' => 'phone',
+                        'body_vars'    => [$amountFormatted, $receiverName],
+                    ]
+                );
                 $result['sender_sent'] = true;
+                Log::info('Wasapi notifyOrderTransactionComplete sender response', [
+                    'phone'    => $senderPhone,
+                    'amount'   => $amountFormatted,
+                    'receiver' => $receiverName,
+                    'response' => $response,
+                ]);
             } catch (\Throwable $e) {
+                $result['sender_error'] = $e->getMessage();
                 Log::warning('Wasapi notifyOrderTransactionComplete sender falló', [
                     'phone'   => $senderPhone,
                     'message' => $e->getMessage(),
@@ -595,22 +629,25 @@ class WasapiService
             }
         }
 
-        if ($receiverPhone !== null && $receiverPhone !== '' && $receiverPhone !== $senderPhone) {
+        if ($receiverPhone !== null && $receiverPhone !== '') {
             try {
-                $this->sendTextMessage($receiverPhone, $receiverMessage);
+                $response = $this->sendWhatsAppTemplateByCategory(
+                    self::CATEGORY_RECIBIR_REMESA,
+                    $receiverPhone,
+                    [
+                        'contact_type' => 'phone',
+                        'body_vars'    => [$amountFormatted, $amountFormatted],
+                    ]
+                );
                 $result['receiver_sent'] = true;
-            } catch (\Throwable $e) {
-                Log::warning('Wasapi notifyOrderTransactionComplete receiver falló', [
-                    'phone'   => $receiverPhone,
-                    'message' => $e->getMessage(),
+                Log::info('Wasapi notifyOrderTransactionComplete receiver response', [
+                    'phone'    => $receiverPhone,
+                    'amount'   => $amountFormatted,
+                    'response' => $response,
                 ]);
-            }
-        } elseif ($receiverPhone !== null && $receiverPhone !== '' && $receiverPhone === $senderPhone) {
-            try {
-                $this->sendTextMessage($receiverPhone, $receiverMessage);
-                $result['receiver_sent'] = true;
             } catch (\Throwable $e) {
-                Log::warning('Wasapi notifyOrderTransactionComplete receiver (mismo teléfono) falló', [
+                $result['receiver_error'] = $e->getMessage();
+                Log::warning('Wasapi notifyOrderTransactionComplete receiver falló', [
                     'phone'   => $receiverPhone,
                     'message' => $e->getMessage(),
                 ]);

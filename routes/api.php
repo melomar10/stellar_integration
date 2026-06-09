@@ -40,6 +40,7 @@ Route::prefix('alfred')->group(function () {
     Route::post('orders',                             [AlfredController::class, 'createOrder']);
     Route::post('orders/confirm-by-phone',            [AlfredController::class, 'confirmOrderByPhone']);
     Route::post('orders/complete',                    [AlfredController::class, 'completeOrder']);
+    Route::get('orders/completed-count-by-receiver',   [AlfredController::class, 'completedOrdersCountByReceiver']);
     Route::post('transfer-requests',                  [TransferRequestController::class, 'store']);
     Route::get('transfer-requests/by-sender',         [TransferRequestController::class, 'indexBySender']);
     Route::post('transfer-requests/cancel',            [TransferRequestController::class, 'cancelBySender']);

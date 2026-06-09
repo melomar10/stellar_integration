@@ -782,6 +782,36 @@
                                         },
                                         "order": {
                                             "type": "object"
+                                        },
+                                        "transfer_request_completed": {
+                                            "description": "Si se marcó una solicitud de transferencia como completada",
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "transfer_request": {
+                                            "type": "object",
+                                            "nullable": true
+                                        },
+                                        "whatsapp": {
+                                            "description": "Plantillas enviadas cuando status=completed: Deposito Recibido (sender), Recibir Remesa (receiver)",
+                                            "properties": {
+                                                "sender_sent": {
+                                                    "type": "boolean"
+                                                },
+                                                "receiver_sent": {
+                                                    "type": "boolean"
+                                                },
+                                                "sender_error": {
+                                                    "type": "string",
+                                                    "nullable": true
+                                                },
+                                                "receiver_error": {
+                                                    "type": "string",
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object",
+                                            "nullable": true
                                         }
                                     },
                                     "type": "object"
@@ -797,6 +827,58 @@
                     },
                     "500": {
                         "description": "Error interno"
+                    }
+                }
+            }
+        },
+        "/api/alfred/orders/completed-count-by-receiver": {
+            "get": {
+                "tags": [
+                    "Alfred"
+                ],
+                "summary": "Cantidad de órdenes completadas por teléfono del receiver",
+                "description": "Devuelve cuántas órdenes en estado completed tiene el destinatario (receiver) indicado.",
+                "operationId": "alfredCompletedOrdersCountByReceiver",
+                "parameters": [
+                    {
+                        "name": "receiver_phone",
+                        "in": "query",
+                        "description": "Teléfono del destinatario (receiver)",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "18294428902"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Consulta exitosa",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "receiver_phone": {
+                                            "type": "string",
+                                            "example": "18294428902"
+                                        },
+                                        "count": {
+                                            "description": "Cantidad de órdenes en estado completed",
+                                            "type": "integer",
+                                            "example": 2
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validación"
                     }
                 }
             }

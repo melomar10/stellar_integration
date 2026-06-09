@@ -1235,6 +1235,71 @@ class AlfredService
         return null;
     }
 
+    public function resolveDisplayNameByAlfredCustomerId(string $customerId): string
+    {
+        $customerId = trim($customerId);
+        if ($customerId === '') {
+            return 'Usuario';
+        }
+
+        $alfredAccount = AlfredAccount::query()
+            ->where('alfred_customer_id', $customerId)
+            ->with('client')
+            ->first();
+
+        if ($alfredAccount === null) {
+            return 'Usuario';
+        }
+
+        $name = trim(((string) ($alfredAccount->first_name ?? '')).' '.((string) ($alfredAccount->last_name ?? '')));
+        if ($name !== '') {
+            return $name;
+        }
+
+        if (! empty($alfredAccount->full_name)) {
+            $fullName = trim((string) $alfredAccount->full_name);
+            if ($fullName !== '') {
+                return $fullName;
+            }
+        }
+
+        $client = $alfredAccount->client;
+        if ($client !== null) {
+            $clientName = trim(((string) ($client->name ?? '')).' '.((string) ($client->last_name ?? '')));
+            if ($clientName !== '') {
+                return $clientName;
+            }
+        }
+
+        return 'Usuario';
+    }
+
+    /**
+     * @return array{receiver_phone: string, count: int}
+     */
+    public function countCompletedOrdersByReceiverPhone(string $phone): array
+    {
+        $normalizedPhone = $this->normalizePhone($phone);
+        if ($normalizedPhone === '') {
+            throw new \InvalidArgumentException('Teléfono del receiver inválido.');
+        }
+
+        $customerId = $this->resolveAlfredCustomerIdByPhone($normalizedPhone);
+        $count = 0;
+
+        if ($customerId !== null) {
+            $count = AlfredOrder::query()
+                ->where('receiver_customer_id', $customerId)
+                ->where('status', AlfredOrder::STATUS_COMPLETED)
+                ->count();
+        }
+
+        return [
+            'receiver_phone' => $normalizedPhone,
+            'count'          => $count,
+        ];
+    }
+
     // 7. Onramp
     public function createOnramp(array $payload): array
     {

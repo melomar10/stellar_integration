@@ -325,7 +325,7 @@ class TransferRequestController extends Controller
                 ], 422);
             }
 
-            $transferRequest->update(['status' => TransferRequest::STATUS_CANCELADA]);
+            $transferRequest->update(['status' => TransferRequest::STATUS_RECHAZADA]);
 
             Log::info('Transfer request cancelled via API', [
                 'uuid'         => $transferRequest->uuid,
