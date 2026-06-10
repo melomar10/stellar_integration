@@ -239,6 +239,10 @@ class TransferRequestController extends Controller
                 'has_requests' => count($requests) > 0,
                 'count'        => count($requests),
                 'requests'     => $requests,
+                'first-amount'       => $requests->first()->amount,
+                'first-currency'     => $requests->first()->currency,
+                'first-status'       => $requests->first()->status,
+                'first-uuid'         => $requests->first()->uuid,
             ], 200);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
